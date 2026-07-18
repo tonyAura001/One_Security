@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PilotePME — Frontend
 
-## Getting Started
+Plateforme SaaS de pilotage pour les **entreprises de sécurité privée** :
+gestion des agents, sites gardés, planning des vacations, main courante
+(incidents) et reporting.
 
-First, run the development server:
+## Stack
+
+| Domaine | Choix |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 |
+| Langage | TypeScript (strict) |
+| Styles | Tailwind CSS 4 + shadcn/ui (Radix, style *new-york*) |
+| Thème | « Aurantir » — base slate, accent ambre, dark mode par défaut |
+| Data / cache | TanStack React Query + Axios |
+| Formulaires | react-hook-form + Zod (via Standard Schema resolver) |
+| Graphiques | Recharts (wrappers shadcn `chart`) |
+| Cartes | Leaflet / react-leaflet (chargé en `dynamic ssr:false`) |
+| Notifications | Sonner |
+
+## Démarrage
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local   # renseigner NEXT_PUBLIC_API_URL
+pnpm dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Scripts : `pnpm dev` · `pnpm build` · `pnpm start` · `pnpm lint`
+Typecheck : `pnpm exec tsc --noEmit`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (app)/              # Espace authentifié (shell sidebar + header)
+│   │   ├── layout.tsx      # SidebarProvider + AppSidebar + AppHeader
+│   │   ├── dashboard/      # KPI, graphiques, carte
+│   │   ├── agents/  sites/  incidents/  planning/  reports/  settings/  tenants/
+│   ├── (auth)/login/       # Écrans hors-shell (connexion)
+│   ├── layout.tsx          # <html lang=fr> + Providers globaux
+│   └── globals.css         # Thème (tokens oklch, palette graphiques)
+├── components/
+│   ├── ui/                 # Primitives shadcn (générées, éditables)
+│   ├── layout/             # Sidebar, header, theme-toggle, user-menu…
+│   ├── shared/             # StatCard, PageHeader, badges métier, guards…
+│   ├── charts/             # Wrappers Recharts
+│   ├── maps/               # Carte Leaflet + wrapper client
+│   ├── settings/  auth/    # Formulaires par domaine
+│   └── providers/          # Theme + React Query + Session + Tooltip + Toaster
+├── config/
+│   ├── roles.ts            # RBAC : permissions par rôle, can()/hasRole()
+│   ├── nav.ts              # Navigation (filtrée par permission)
+│   └── site.ts
+├── lib/
+│   ├── api/client.ts       # Axios + injection JWT + normalisation erreurs
+│   ├── auth/session.tsx    # Contexte session (démo, swappable → JWT/me)
+│   ├── format.ts           # Formatage fr-FR
+│   └── mock-data.ts        # Données typées (temporaire, forme = future API)
+└── types/                  # Types du domaine (Agent, Site, Incident, Shift…)
+```
 
-## Learn More
+## RBAC
 
-To learn more about Next.js, take a look at the following resources:
+Six rôles : `SUPER_ADMIN`, `DIRIGEANT`, `EXPLOITATION`, `SUPERVISEUR`,
+`AGENT`, `CLIENT`. Les permissions (`ressource:action`) sont centralisées
+dans `src/config/roles.ts`. La navigation et les pages sont filtrées via
+`can(permission)` ; `<RequirePermission>` protège l'accès direct par URL
+(défense en profondeur — l'autorité fait foi côté backend).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> **Mode démonstration** : un sélecteur de rôle (header) permet de visualiser
+> le RBAC sans backend d'auth. `src/lib/auth/session.tsx` sera hydraté depuis
+> le JWT / `/me` — l'API publique (`useSession`, `can`, `hasRole`) ne changera pas.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Prochaines étapes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Brancher la session réelle (JWT) et retirer le `RoleSwitcher`.
+- Remplacer `mock-data.ts` par des hooks React Query (`src/lib/api`).
+- Ajouter Prettier + tests (Jest/RTL, Playwright) et le pipeline CI.

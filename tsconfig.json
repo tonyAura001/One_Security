@@ -19,6 +19,8 @@
       }
     ],
     "paths": {
+      "@/aurantir-front-kit": ["./aurantir-front-kit/index.ts"],
+      "@/aurantir-front-kit/*": ["./aurantir-front-kit/*"],
       "@/*": ["./src/*"]
     }
   },
@@ -30,5 +32,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "aurantir-front-kit/screens",
+    "aurantir-front-kit/design-system/tailwind.config.ts"
+  ]
 }
