@@ -3,6 +3,10 @@
 # donc pas besoin d'openssl : image `slim` suffit.
 
 FROM node:22-slim AS base
+# corepack utilisera la version pnpm figée dans package.json ("packageManager":
+# "pnpm@9.15.9") — celle du lockfile. Sans ça, corepack tire pnpm 10 qui bloque
+# les scripts de build des deps (@prisma/engines…) et fait échouer l'install.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 
