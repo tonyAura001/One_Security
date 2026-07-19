@@ -50,6 +50,7 @@ create policy "factures_read_finance"
 - [x] Module **clients en écriture** (formulaire Nouveau client, policies insert/update DG/RP).
 - [x] Module **fournisseurs** en lecture (encours dérivé des dépenses impayées).
 - [x] Module **prospects** (kanban) lecture + **écriture** (drag persiste le stage).
-- [ ] Poursuivre module par module (recrutement/CM/POS/maintenance/tâches = nouvelles tables à modéliser).
+- [x] Modules **pointage/présences** (agrégation), **trésorerie** (dashboard), **agents** (User), **incidents** (écran construit).
+- [ ] Restent NON portables (nouvelles tables à modéliser) : recrutement, community management, caisse/POS, maintenance, tâches.
 - [ ] Edge Functions pour la logique non exprimable en table+RLS.
 - [ ] Retrait de `apps/api` une fois tous les modules portés.

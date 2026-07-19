@@ -14,6 +14,7 @@ import { CrmClients } from "./crm/crm";
 import { OpsPlanning } from "./ops/planning";
 import { OpsPresences } from "./ops/presences";
 import { OpsPointage } from "./ops/pointage";
+import { IncidentsScreen } from "./ops/incidents";
 
 // Écrans de démonstration (Trésorerie, Fournisseurs, Contrats, Prospects,
 // Accès clients, Satisfaction, Agents, Catalogue, Sécurité, Données)
@@ -110,6 +111,7 @@ const SCREENS: Partial<Record<ScreenKey, ComponentType>> = {
   planning: OpsPlanning,
   presences: OpsPresences,
   pointage: OpsPointage,
+  incidents: IncidentsScreen,
   relances: ComptaRelances,
   budget: ComptaBudget,
   exportpaie: ComptaExportPaie,
