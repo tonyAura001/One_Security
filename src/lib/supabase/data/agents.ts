@@ -1,62 +1,63 @@
 /**
- * « Agents » = la table `User` lue via Supabase (RLS users_read_admin / _ops).
+ * « Agents » = les agents de sécurité terrain (table `AgentSecurite`, importée
+ * depuis la liste du client), lus via Supabase (RLS agents_securite_read).
  *
- * Compromis assumé : le schéma n'a pas de roster d'agents terrain dédié — on
- * projette les utilisateurs sur le type UI `Agent`. Les champs opérationnels
- * absents du modèle (matricule, poste, site, carte pro, certifications) sont
- * des valeurs par défaut, à remplacer par un vrai modèle Agent plus tard.
+ * Note : la colonne « POSTES » du fichier source est l'AFFECTATION (site/lieu),
+ * mappée sur `Agent.site`. Le poste métier (`Agent.poste`) n'est pas fourni →
+ * défaut « agent ». Carte pro / certifications / taux de présence pas encore
+ * dans les données → valeurs par défaut.
  */
 import { createClient } from "@/lib/supabase/client";
 import type { Agent, AgentStats } from "@/lib/api/agents";
 
-interface DbUser {
+interface DbAgent {
   id: string;
-  nom: string;
   prenom: string;
+  nom: string | null;
+  matricule: string | null;
   telephone: string | null;
-  actif: boolean;
+  poste: string | null;
+  statut: string;
 }
 
-function initials(prenom: string, nom: string): string {
-  return ((prenom[0] ?? "") + (nom[0] ?? "")).toUpperCase();
+function initials(prenom: string, nom: string | null): string {
+  return ((prenom[0] ?? "") + (nom?.[0] ?? "")).toUpperCase();
 }
 
-function mapAgent(u: DbUser, i: number): Agent {
+function mapAgent(a: DbAgent, i: number): Agent {
   return {
-    id: u.id,
-    name: `${u.prenom} ${u.nom}`.trim(),
-    initials: initials(u.prenom, u.nom),
-    matricule: `AG-${String(i + 1).padStart(3, "0")}`,
+    id: a.id,
+    name: `${a.prenom} ${a.nom ?? ""}`.trim(),
+    initials: initials(a.prenom, a.nom),
+    matricule: a.matricule ?? `AG-${String(i + 1).padStart(3, "0")}`,
     poste: "agent",
-    site: "—",
-    status: u.actif ? "en_poste" : "suspendu",
-    phone: u.telephone ?? "—",
-    cardExpiry: "2027-01-01", // placeholder (pas encore modélisé)
+    site: a.poste ?? "—",
+    status: a.statut === "actif" ? "en_poste" : "suspendu",
+    phone: a.telephone ?? "—",
+    cardExpiry: "2027-01-01", // carte pro non fournie
     certifications: [],
     attendanceRate: 95,
   };
 }
 
-/** Agents (utilisateurs) visibles par l'utilisateur courant (selon RLS). */
+/** Agents de sécurité terrain visibles par l'utilisateur courant (selon RLS). */
 export async function fetchAgents(): Promise<Agent[]> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("User")
-    .select("id,nom,prenom,telephone,actif")
-    .order("nom");
+    .from("AgentSecurite")
+    .select("id,prenom,nom,matricule,telephone,poste,statut")
+    .order("prenom");
   if (error) throw error;
-  return (data as unknown as DbUser[]).map(mapAgent);
+  return (data as unknown as DbAgent[]).map(mapAgent);
 }
 
 /** KPIs agents dérivés de la liste (remplace getAgentStats mock). */
 export function computeAgentStats(agents: Agent[]): AgentStats {
-  const active = agents.filter((a) => a.status !== "suspendu").length;
   return {
-    active,
+    active: agents.filter((a) => a.status !== "suspendu").length,
     onDuty: agents.filter((a) => a.status === "en_poste").length,
     cardsToRenew: agents.filter(
-      (a) =>
-        (new Date(a.cardExpiry).getTime() - Date.now()) / 86_400_000 < 90,
+      (a) => (new Date(a.cardExpiry).getTime() - Date.now()) / 86_400_000 < 90,
     ).length,
     attendanceRate: agents.length
       ? Math.round(
