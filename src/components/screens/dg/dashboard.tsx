@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { AlertTriangle, Calendar, Loader2, Package } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,6 +20,7 @@ import { getRecentActivity } from "@/lib/api/activity";
 import type { Tone } from "@/lib/colors";
 import { toast } from "@/lib/toast";
 import { FINANCIAL_KPIS, OPERATIONAL_KPIS } from "./dashboard-kpis";
+import { fetchDashboardKpis } from "@/lib/supabase/data/dashboard";
 
 const RevenueChart = dynamic(
   () => import("@/components/charts/revenue-chart").then((m) => m.RevenueChart),
@@ -109,6 +111,33 @@ export function DgDashboard() {
   const [period, setPeriod] = useState<Period>("mois");
   const { role } = useSession();
 
+  // KPIs réels agrégés multi-domaines (RLS) ; repli démo si non chargés.
+  const { data: k } = useQuery({
+    queryKey: ["dashboard-kpis"],
+    queryFn: fetchDashboardKpis,
+  });
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
+  const financial = k
+    ? FINANCIAL_KPIS.map((kpi, i) => {
+        const vals = [fmt(k.caMois), String(k.tauxRecouvrement), fmt(k.masseSalariale), fmt(k.facturesRetard)];
+        const patched = { ...kpi, value: vals[i] ?? kpi.value };
+        if (i === 1) patched.progress = { value: k.tauxRecouvrement, tone: "warning" };
+        return patched;
+      })
+    : FINANCIAL_KPIS;
+  const operational = k
+    ? OPERATIONAL_KPIS.map((kpi, i) => {
+        const vals = [
+          String(k.agentsService), String(k.contratsExpirant), String(k.ticketsOuverts),
+          String(k.tachesRetard), String(k.stockSousSeuil), undefined, fmt(k.caBoutique), String(k.scoreSanteCrm),
+        ];
+        const v = vals[i];
+        const patched = { ...kpi, value: v ?? kpi.value };
+        if (i === 7) patched.progress = { value: k.scoreSanteCrm, tone: "violet" };
+        return patched;
+      })
+    : OPERATIONAL_KPIS;
+
   return (
     <ScreenContainer>
       {/* ── Bandeau FINANCIER : les 4 chiffres « argent » qui cadrent le graphe ── */}
@@ -128,7 +157,7 @@ export function DgDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
-        {FINANCIAL_KPIS.map((kpi) => (
+        {financial.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} />
         ))}
       </div>
@@ -203,7 +232,7 @@ export function DgDashboard() {
         OPÉRATIONNEL
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-        {OPERATIONAL_KPIS.map((kpi) => (
+        {operational.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} compact />
         ))}
       </div>
