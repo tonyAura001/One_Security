@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -26,7 +28,6 @@ import {
 } from "@/components/ui/sheet";
 import {
   getAgents,
-  getAgentStats,
   cardNeedsRenewal,
   daysUntilCardExpiry,
   AGENT_STATUS_META,
@@ -34,6 +35,7 @@ import {
   type Agent,
   type AgentStatus,
 } from "@/lib/api/agents";
+import { fetchAgents, computeAgentStats } from "@/lib/supabase/data/agents";
 import { toneText } from "@/lib/colors";
 import { formatDateFR } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -130,8 +132,10 @@ function useColumns(onSelect: (a: Agent) => void): ColumnDef<Agent>[] {
 }
 
 export function AgentsScreen() {
-  const allAgents = useMemo(() => getAgents(), []);
-  const stats = useMemo(() => getAgentStats(), []);
+  // Agents réels via Supabase (RLS) ; repli démo si accès refusé.
+  const agentsQ = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const allAgents = agentsQ.isSuccess && agentsQ.data.length > 0 ? agentsQ.data : getAgents();
+  const stats = useMemo(() => computeAgentStats(allAgents), [allAgents]);
   const [status, setStatus] = useState<StatusFilter>("tous");
   const [site, setSite] = useState<string>("tous");
   const [selected, setSelected] = useState<Agent | null>(null);
