@@ -40,7 +40,7 @@ import { SecretaireContratEditor } from "./secretaire/contrat-editor";
 import { SecretaireReclamations } from "./secretaire/reclamations";
 
 // Recrutement
-import { RecruteurPipeline } from "./recruteur/pipeline";
+import { RecrutementScreen } from "./recruteur/recrutement";
 import { RecruteurEntretiens } from "./recruteur/entretiens";
 import { RecruteurContratsTravail } from "./recruteur/contrats-travail";
 import { RecruteurOnboarding } from "./recruteur/onboarding";
@@ -118,7 +118,7 @@ const SCREENS: Partial<Record<ScreenKey, ComponentType>> = {
   devisform: SecretaireDevis,
   contratedit: SecretaireContratEditor,
   reclamations: SecretaireReclamations,
-  recrutement: RecruteurPipeline,
+  recrutement: RecrutementScreen,
   entretiens: RecruteurEntretiens,
   contrattravail: RecruteurContratsTravail,
   onboarding: RecruteurOnboarding,
