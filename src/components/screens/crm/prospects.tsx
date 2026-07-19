@@ -158,10 +158,12 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
             {prospect.owner}
           </span>
         </span>
-        <span className="text-muted inline-flex items-center gap-1 text-[11px] font-semibold">
-          <CalendarClock className="size-3.5" />
-          {formatDateFR(prospect.nextFollowUp, "d MMM")}
-        </span>
+        {prospect.nextFollowUp && (
+          <span className="text-muted inline-flex items-center gap-1 text-[11px] font-semibold">
+            <CalendarClock className="size-3.5" />
+            {formatDateFR(prospect.nextFollowUp, "d MMM")}
+          </span>
+        )}
       </div>
     </div>
   );

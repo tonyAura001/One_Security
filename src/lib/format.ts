@@ -33,21 +33,34 @@ export function formatPercent(n: number, fractionDigits = 0): string {
   })} %`;
 }
 
-type DateInput = Date | string | number;
+type DateInput = Date | string | number | null | undefined;
 
 function toDate(d: DateInput): Date {
-  return d instanceof Date ? d : new Date(d);
+  return d instanceof Date ? d : new Date(d ?? NaN);
 }
 
-/** e.g. "3 juillet 2026". Pass a date-fns pattern to override. */
+/** true si la date est utilisable (évite le throw « Invalid time value »). */
+function isValidDate(d: Date): boolean {
+  return !Number.isNaN(d.getTime());
+}
+
+/**
+ * e.g. "3 juillet 2026". Pass a date-fns pattern to override.
+ * Renvoie « — » pour une date absente/invalide plutôt que de lever
+ * (date-fns `format` throw sur une Invalid Date, ce qui crasherait le rendu).
+ */
 export function formatDateFR(d: DateInput, pattern = "d MMMM yyyy"): string {
+  const date = toDate(d);
+  if (!isValidDate(date)) return "—";
   const options: FormatOptions = { locale: fr };
-  return format(toDate(d), pattern, options);
+  return format(date, pattern, options);
 }
 
-/** "il y a 3 jours". */
+/** "il y a 3 jours". « — » si la date est absente/invalide. */
 export function formatRelative(d: DateInput): string {
-  return formatDistanceToNow(toDate(d), { locale: fr, addSuffix: true });
+  const date = toDate(d);
+  if (!isValidDate(date)) return "—";
+  return formatDistanceToNow(date, { locale: fr, addSuffix: true });
 }
 
 /** Short day + date, e.g. "ven. 3 juil.". */
