@@ -15,6 +15,7 @@ import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
 import { CONTRACTS, INVOICES, QUOTES } from "@/lib/api/data";
 import { fetchInvoices } from "@/lib/supabase/data/invoices";
+import { fetchContracts } from "@/lib/supabase/data/contracts";
 import type {
   Contract,
   ContractStatus,
@@ -203,6 +204,16 @@ export function FinanceFacturation() {
   });
   const invoices = isSuccess && data.length > 0 ? data : INVOICES;
 
+  // Contrats réels via Supabase (RLS) ; repli démo si accès refusé.
+  const contractsQuery = useQuery({
+    queryKey: ["contracts"],
+    queryFn: fetchContracts,
+  });
+  const contracts =
+    contractsQuery.isSuccess && contractsQuery.data.length > 0
+      ? contractsQuery.data
+      : CONTRACTS;
+
   const paid = invoices.filter((i) => i.status === "payee");
   const sent = invoices.filter((i) => i.status === "envoyee");
   const late = invoices.filter((i) => i.status === "retard");
@@ -296,7 +307,7 @@ export function FinanceFacturation() {
         {tab === "contrats" && (
           <DataTable
             columns={contractColumns}
-            data={CONTRACTS}
+            data={contracts}
             searchable
             searchPlaceholder={meta.placeholder}
             emptyTitle="Aucun contrat"

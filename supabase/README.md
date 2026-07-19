@@ -44,6 +44,8 @@ create policy "factures_read_finance"
 - [x] Écran CRM câblé sur `supabase-js` (mapper UI↔DB) + **enrichi** (secteur, contact décideur, nb sites, CA mensuel via Contrat) — module `clients` 100% réel.
 - [ ] Client `supabase-js` data côté front pour les autres modules.
 - [x] Module **factures** en lecture (RLS + join client).
+- [x] Module **contrats** en lecture (RLS + join client, statut dérivé de la date de fin).
+- [x] DG **« Voir en tant que »** tous les rôles (view-as, UI uniquement).
 - [x] Module **clients en écriture** (formulaire Nouveau client, policies insert/update DG/RP).
 - [ ] Poursuivre module par module (lecture puis écriture).
 - [ ] Edge Functions pour la logique non exprimable en table+RLS.
