@@ -96,6 +96,7 @@ import { ReunionsScreen } from "./shared/reunions";
 
 // Organisation / système
 import { SharedTaches } from "./shared/taches";
+import { DocumentsScreen } from "./documents/documents";
 import { SharedRapports } from "./shared/rapports";
 import { SharedParametres } from "./shared/parametres";
 
@@ -151,6 +152,7 @@ const SCREENS: Partial<Record<ScreenKey, ComponentType>> = {
   rentabilite: RentabiliteScreen,
   projets: ProjetsListe,
   taches: SharedTaches,
+  documents: DocumentsScreen,
   rapports: SharedRapports,
   parametres: SharedParametres,
   // Écrans de démonstration nouvellement branchés

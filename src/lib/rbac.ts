@@ -18,6 +18,7 @@ export type ScreenKey =
   | "pos"
   | "taches"
   | "rapports"
+  | "documents"
   | "parametres"
   | "home"
   | "relances"
@@ -623,6 +624,7 @@ export const SCREEN_META: Record<
   pos: { crumb: "Ventes", title: "Point de vente" },
   taches: { crumb: "Organisation", title: "Tâches & Réunions" },
   rapports: { crumb: "Analyse", title: "Rapports" },
+  documents: { crumb: "Documents", title: "Éditeur de documents" },
   parametres: { crumb: "Système", title: "Paramètres" },
   relances: { crumb: "Comptabilité", title: "Paiements & Relances" },
   budget: { crumb: "Comptabilité", title: "Budget & Trésorerie" },
@@ -699,6 +701,7 @@ const UNIVERSAL: ScreenKey[] = ["parametres"];
  * pour TOUS les rôles.
  */
 const COMMON_MENU: MenuItem[] = [
+  { key: "documents", label: "Documents", icon: "doc" },
   { key: "taches", label: "Tâches", icon: "check" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
@@ -743,6 +746,8 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   // Communs
   "taches",
   "messagerie",
+  // Documents
+  "documents",
   // Administration / système
   "membres",
   "parametres",
