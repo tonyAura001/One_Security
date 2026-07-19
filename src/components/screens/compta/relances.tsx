@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
@@ -7,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatNumberFR, formatFCFA } from "@/lib/format";
 import { RELANCES } from "@/lib/api/data";
+import { fetchRelances } from "@/lib/supabase/data/relances";
 import type { Relance } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText } from "@/lib/colors";
@@ -39,8 +42,14 @@ interface StatCard {
 }
 
 export function ComptaRelances() {
-  const totalLate = RELANCES.reduce((sum, r) => sum + r.amount, 0);
-  const noticeCount = RELANCES.filter((r) => r.stage === "J+45").length;
+  const { data, isSuccess } = useQuery({
+    queryKey: ["relances"],
+    queryFn: fetchRelances,
+  });
+  const relances = isSuccess && data.length > 0 ? data : RELANCES;
+
+  const totalLate = relances.reduce((sum, r) => sum + r.amount, 0);
+  const noticeCount = relances.filter((r) => r.stage === "J+45").length;
 
   const stats: StatCard[] = [
     {
@@ -63,7 +72,7 @@ export function ComptaRelances() {
     },
   ];
 
-  const rows = [...RELANCES].sort((a, b) => b.daysLate - a.daysLate);
+  const rows = [...relances].sort((a, b) => b.daysLate - a.daysLate);
 
   return (
     <ScreenContainer>
