@@ -11,6 +11,7 @@ import {
 } from "@/lib/store/decisions";
 import { RouteGuard } from "./route-guard";
 import { PageTitleBar } from "./page-title-bar";
+import { ViewAsBar } from "./view-as-bar";
 import { buildSidebarNav } from "./sidebar-nav-adapter";
 
 /**
@@ -34,7 +35,11 @@ export function KitShell({
 }) {
   // Amorçage synchrone (une fois) : la session lit déjà le bon rôle ci-dessous.
   useState(() => {
-    useSessionStore.setState({ role: serverRole, identity });
+    useSessionStore.setState({
+      role: serverRole,
+      actualRole: serverRole,
+      identity,
+    });
     return null;
   });
   // Re-synchronise si l'utilisateur/rôle change entre deux navigations.
@@ -67,6 +72,7 @@ export function KitShell({
       }}
     >
       <div className="mx-auto w-full max-w-[1440px]">
+        <ViewAsBar />
         <PageTitleBar />
         <RouteGuard>{children}</RouteGuard>
       </div>

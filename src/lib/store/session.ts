@@ -12,10 +12,21 @@ export interface Identity {
 }
 
 interface SessionState {
+  /** Rôle AFFICHÉ (menu, accès, guards). Peut être surchargé par le DG. */
   role: RoleId;
+  /** Vraie identité RBAC authentifiée (immuable côté client). */
+  actualRole: RoleId;
   /** Identité réelle ; `null` avant hydratation depuis le serveur. */
   identity: Identity | null;
   setRole: (role: RoleId) => void;
+  /**
+   * « Voir en tant que » : le DG (et lui seul) peut consulter l'interface d'un
+   * autre rôle. Sans effet si l'utilisateur réel n'est pas DG (défense en
+   * profondeur — l'UI ne montre le switcher qu'au DG).
+   */
+  viewAs: (role: RoleId) => void;
+  /** Revient à l'espace de la vraie identité. */
+  resetView: () => void;
   /** Hydrate le store avec l'utilisateur authentifié (voir SessionHydrator). */
   setSession: (role: RoleId, identity: Identity | null) => void;
 }
@@ -28,11 +39,16 @@ interface SessionState {
  * `SessionHydrator` monté dans le shell. `useSession()` garde exactement la
  * même forme qu'en démo, donc AUCUN écran n'a à changer.
  */
-export const useSessionStore = create<SessionState>()((set) => ({
+export const useSessionStore = create<SessionState>()((set, get) => ({
   role: "dg",
+  actualRole: "dg",
   identity: null,
   setRole: (role) => set({ role }),
-  setSession: (role, identity) => set({ role, identity }),
+  viewAs: (role) => {
+    if (get().actualRole === "dg") set({ role });
+  },
+  resetView: () => set({ role: get().actualRole }),
+  setSession: (role, identity) => set({ role, actualRole: role, identity }),
 }));
 
 export interface Session {
@@ -52,20 +68,38 @@ export interface Session {
  * initiales) prime sur la persona du rôle quand elle est disponible ; le
  * dégradé d'avatar et le libellé de fonction restent tirés du rôle.
  */
-export function useSession(): Session & { setRole: (role: RoleId) => void } {
+export function useSession(): Session & {
+  setRole: (role: RoleId) => void;
+  actualRole: RoleId;
+  isViewingAs: boolean;
+  viewAs: (role: RoleId) => void;
+  resetView: () => void;
+} {
   const role = useSessionStore((s) => s.role);
+  const actualRole = useSessionStore((s) => s.actualRole);
   const identity = useSessionStore((s) => s.identity);
   const setRole = useSessionStore((s) => s.setRole);
+  const viewAs = useSessionStore((s) => s.viewAs);
+  const resetView = useSessionStore((s) => s.resetView);
   const config = ROLES[role];
+  const isViewingAs = role !== actualRole;
   return {
     role,
     config,
     org: ORG,
     setRole,
+    actualRole,
+    isViewingAs,
+    viewAs,
+    resetView,
     user: {
-      name: identity?.name ?? config.name,
-      fonction: identity?.fonction ?? config.fonction,
-      initials: identity?.initials ?? config.initials,
+      // En « voir en tant que », on affiche la persona du rôle consulté ;
+      // sinon l'identité réelle de l'utilisateur connecté.
+      name: isViewingAs ? config.name : (identity?.name ?? config.name),
+      fonction: config.fonction,
+      initials: isViewingAs
+        ? config.initials
+        : (identity?.initials ?? config.initials),
       gradient: config.gradient,
     },
   };
