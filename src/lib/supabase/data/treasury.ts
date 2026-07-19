@@ -117,6 +117,32 @@ export async function fetchMovements(): Promise<Movement[]> {
   return movs.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+export interface NewCompteInput {
+  nom: string;
+  iban: string;
+  type: AccountKind; // bank | wave | om | cash
+  soldeInitial: number;
+  bicSwift?: string;
+}
+
+/** Crée un compte bancaire (RLS insert : DG/RF). */
+export async function createCompte(i: NewCompteInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("CompteBancaire")
+    .insert({
+      nom: i.nom.trim(),
+      iban: i.iban.trim(),
+      type: i.type,
+      soldeInitial: Math.round(i.soldeInitial),
+      bicSwift: i.bicSwift?.trim() || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export interface NewEncaissementInput {
   factureId: string;
   compteBancaireId: string;

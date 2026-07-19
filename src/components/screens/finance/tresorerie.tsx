@@ -46,6 +46,7 @@ import { downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { NewMovementDialog } from "./new-movement-dialog";
+import { NewAccountDialog } from "./new-account-dialog";
 
 const ACCOUNT_ICON = {
   bank: Landmark,
@@ -138,6 +139,7 @@ export function TresorerieScreen() {
           </p>
         </div>
         <div className="flex gap-2">
+          <NewAccountDialog />
           <Button
             variant="outline"
             size="sm"
