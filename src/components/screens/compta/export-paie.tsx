@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Wand2 } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -11,13 +11,14 @@ import { toast } from "@/lib/toast";
 import { formatNumberFR, formatFCFA, formatDateFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { downloadCsv } from "@/lib/csv";
-import { fetchPayslips } from "@/lib/supabase/data/payroll";
+import { fetchPayslips, generatePaie } from "@/lib/supabase/data/payroll";
 
 /** Période courante des bulletins (source unique pour la requête + le titre). */
 const PERIODE = "2026-06";
 const periodeLabel = formatDateFR(`${PERIODE}-01`, "MMMM yyyy");
 
 export function ComptaExportPaie() {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["payslips", PERIODE],
     queryFn: () => fetchPayslips(PERIODE),
@@ -25,6 +26,26 @@ export function ComptaExportPaie() {
   const payslips = data ?? [];
   const total = payslips.reduce((sum, p) => sum + p.net, 0);
   const count = payslips.length;
+
+  const generateMut = useMutation({
+    mutationFn: () => generatePaie(PERIODE),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["payslips", PERIODE] });
+      toast.success(
+        r.created > 0
+          ? `${r.created} bulletin${r.created > 1 ? "s" : ""} généré${r.created > 1 ? "s" : ""}`
+          : "Bulletins déjà à jour pour cette période",
+      );
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level security|policy|permission/i.test(msg)
+          ? "Accès refusé : seuls DG/RF/RH peuvent générer la paie."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
 
   function handleExport() {
     if (count === 0) {
@@ -56,9 +77,20 @@ export function ComptaExportPaie() {
           <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px] capitalize">
             Récapitulatif de paie — {periodeLabel}
           </div>
-          <StatusPill variant={count > 0 ? "success" : "neutral"} uppercase>
-            {count > 0 ? "Prêt à exporter" : "Aucun bulletin"}
-          </StatusPill>
+          <div className="flex items-center gap-2">
+            <StatusPill variant={count > 0 ? "success" : "neutral"} uppercase>
+              {count > 0 ? "Prêt à exporter" : "Aucun bulletin"}
+            </StatusPill>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generateMut.mutate()}
+              disabled={generateMut.isPending}
+            >
+              <Wand2 className="size-4" />
+              {generateMut.isPending ? "Génération…" : "Générer la paie"}
+            </Button>
+          </div>
         </div>
         <div className="text-muted mb-4 text-[12px] font-semibold">
           {count} bulletins · total net {formatFCFA(total)}

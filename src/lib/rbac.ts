@@ -358,6 +358,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         label: "Paie",
         icon: "cash",
         children: [
+          { key: "exportpaie", label: "Bulletins & paie", icon: "receipt" },
           { key: "prepaie", label: "Préparer la paie", icon: "cash" },
           { key: "paie", label: "Bulletins", icon: "receipt" },
           { key: "soumission", label: "Soumission", icon: "upload" },
