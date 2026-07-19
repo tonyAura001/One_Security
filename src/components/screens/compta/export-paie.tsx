@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { Download, FileSpreadsheet } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -8,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatNumberFR, formatFCFA } from "@/lib/format";
 import { PAYSLIPS } from "@/lib/api/data";
+import { fetchPayslips } from "@/lib/supabase/data/payroll";
 
 const BANKS = ["CBAO", "BICIS", "SGBS", "Ecobank", "Bank of Africa"] as const;
 const BANK_CODES = ["CB01", "BI03", "SG05", "EC07", "BA09"] as const;
@@ -20,8 +23,13 @@ function ibanFor(index: number): string {
 }
 
 export function ComptaExportPaie() {
-  const total = PAYSLIPS.reduce((sum, p) => sum + p.net, 0);
-  const count = PAYSLIPS.length;
+  const { data, isSuccess } = useQuery({
+    queryKey: ["payslips"],
+    queryFn: () => fetchPayslips(),
+  });
+  const payslips = isSuccess && data.length > 0 ? data : PAYSLIPS;
+  const total = payslips.reduce((sum, p) => sum + p.net, 0);
+  const count = payslips.length;
 
   return (
     <ScreenContainer className="max-w-[1040px]">
@@ -47,11 +55,11 @@ export function ComptaExportPaie() {
         </div>
 
         {/* Rows */}
-        {PAYSLIPS.map((p, i) => (
+        {payslips.map((p, i) => (
           <div
             key={p.id}
             className={`flex items-center gap-3.5 px-1 py-3 ${
-              i < PAYSLIPS.length - 1 ? "border-border border-b" : ""
+              i < payslips.length - 1 ? "border-border border-b" : ""
             }`}
           >
             <div className="text-foreground flex-[1.2] truncate text-[12.5px] font-bold">
