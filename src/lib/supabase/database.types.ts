@@ -7,6 +7,66 @@ export type Json = string | number | boolean | null | { [k: string]: Json | unde
 export type Database = {
   public: {
     Tables: {
+      "AgentSecurite": {
+        Row: {
+          "id": string;
+          "prenom": string;
+          "nom": string | null;
+          "dateNaissance": string | null;
+          "lieuNaissance": string | null;
+          "numeroCni": string | null;
+          "matricule": string | null;
+          "telephone": string | null;
+          "telephone2": string | null;
+          "adresse": string | null;
+          "dateDebut": string | null;
+          "dateDebutRaw": string | null;
+          "salaire": number | null;
+          "poste": string | null;
+          "statut": string;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "prenom": string;
+          "nom"?: string | null;
+          "dateNaissance"?: string | null;
+          "lieuNaissance"?: string | null;
+          "numeroCni"?: string | null;
+          "matricule"?: string | null;
+          "telephone"?: string | null;
+          "telephone2"?: string | null;
+          "adresse"?: string | null;
+          "dateDebut"?: string | null;
+          "dateDebutRaw"?: string | null;
+          "salaire"?: number | null;
+          "poste"?: string | null;
+          "statut"?: string;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "prenom"?: string;
+          "nom"?: string | null;
+          "dateNaissance"?: string | null;
+          "lieuNaissance"?: string | null;
+          "numeroCni"?: string | null;
+          "matricule"?: string | null;
+          "telephone"?: string | null;
+          "telephone2"?: string | null;
+          "adresse"?: string | null;
+          "dateDebut"?: string | null;
+          "dateDebutRaw"?: string | null;
+          "salaire"?: number | null;
+          "poste"?: string | null;
+          "statut"?: string;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "AvanceSalaire": {
         Row: {
           "id": string;
@@ -239,6 +299,7 @@ export type Database = {
           "banqueId": string | null;
           "createdAt": string;
           "updatedAt": string;
+          "type": string;
         };
         Insert: {
           "id": string;
@@ -249,6 +310,7 @@ export type Database = {
           "banqueId"?: string | null;
           "createdAt"?: string;
           "updatedAt": string;
+          "type"?: string;
         };
         Update: {
           "id"?: string;
@@ -259,6 +321,7 @@ export type Database = {
           "banqueId"?: string | null;
           "createdAt"?: string;
           "updatedAt"?: string;
+          "type"?: string;
         };
         Relationships: [];
       };
