@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useMemo, useState } from "react";
 import { Boxes, PackageX, Plus, ShoppingCart, Warehouse } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
@@ -12,12 +14,12 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   getCatalogue,
-  getCatalogueStats,
   stockStatus,
   CATEGORY_TONE,
   STOCK_STATUS_META,
   type CatalogueItem,
 } from "@/lib/api/catalogue";
+import { fetchCatalogue, computeCatalogueStats } from "@/lib/supabase/data/catalogue";
 import { formatFCFA, formatFCFACompact } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
@@ -31,8 +33,10 @@ const FILTERS = [
 type Filter = (typeof FILTERS)[number]["value"];
 
 export function CatalogueScreen() {
-  const items = useMemo(() => getCatalogue(), []);
-  const stats = useMemo(() => getCatalogueStats(), []);
+  // Catalogue réel via Supabase (RLS) ; repli démo si accès refusé.
+  const { data, isSuccess } = useQuery({ queryKey: ["catalogue"], queryFn: fetchCatalogue });
+  const items = isSuccess && data.length > 0 ? data : getCatalogue();
+  const stats = useMemo(() => computeCatalogueStats(items), [items]);
   const [filter, setFilter] = useState<Filter>("tous");
 
   const filtered = useMemo(
