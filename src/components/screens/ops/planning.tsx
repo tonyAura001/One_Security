@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchShifts } from "@/lib/supabase/data/planning";
 import { fetchAgents } from "@/lib/supabase/data/agents";
+import { NewShiftDialog } from "./new-shift-dialog";
 import type { Shift } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText, toneTint } from "@/lib/colors";
@@ -71,6 +72,13 @@ export function OpsPlanning() {
 
   return (
     <ScreenContainer>
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <div className="text-muted text-[11px] font-bold tracking-[0.7px] uppercase">
+          Planning hebdomadaire
+        </div>
+        <NewShiftDialog />
+      </div>
+
       {/* Filter + legend */}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
         <label className="text-muted flex items-center gap-2 text-[12px] font-bold">
