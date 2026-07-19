@@ -1,7 +1,7 @@
 /**
  * Trésorerie — comptes, mouvements et évolution du solde (données démo).
- * Rattaché au tenant « Dakar Sécurité ». Réutilise les libellés clients de
- * `data.ts` pour rester cohérent d'un écran à l'autre.
+ * Réutilise les libellés clients de `data.ts` pour rester cohérent d'un écran
+ * à l'autre.
  */
 
 export type AccountKind = "bank" | "wave" | "om" | "cash";

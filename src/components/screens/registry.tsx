@@ -67,10 +67,6 @@ import { CaissierStock } from "./caissier/stock";
 import { CaissierRecus } from "./caissier/recus";
 import { CaissierCloture } from "./caissier/cloture";
 
-// Plateforme (super admin)
-import { SuperadminEntreprises } from "./superadmin/entreprises";
-import { SuperadminAbonnements } from "./superadmin/abonnements";
-
 // Administration
 import { AdminMembres } from "./admin/membres";
 
@@ -140,8 +136,6 @@ const SCREENS: Partial<Record<ScreenKey, ComponentType>> = {
   stock: CaissierStock,
   recus: CaissierRecus,
   cloture: CaissierCloture,
-  entreprises: SuperadminEntreprises,
-  abonnements: SuperadminAbonnements,
   membres: AdminMembres,
   decision: DecisionScreen,
   diffusion: DiffusionScreen,

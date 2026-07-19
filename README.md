@@ -1,80 +1,79 @@
-# PilotePME — Frontend
+# PilotePME
 
-Plateforme SaaS de pilotage pour les **entreprises de sécurité privée** :
-gestion des agents, sites gardés, planning des vacations, main courante
-(incidents) et reporting.
+Solution de gestion **dédiée** pour une entreprise de sécurité privée (Dakar) :
+agents, sites gardés, rondes, incidents (main courante), conformité, contentieux
+et reporting.
 
-## Stack
+> **Mono-tenant.** Ce dépôt héberge une solution dédiée à un client unique
+> (et non plus la plateforme SaaS multi-tenant d'origine). Le modèle de données
+> et les interfaces sont simplifiés en conséquence.
 
-| Domaine | Choix |
-|---|---|
-| Framework | Next.js 16 (App Router) + React 19 |
-| Langage | TypeScript (strict) |
-| Styles | Tailwind CSS 4 + shadcn/ui (Radix, style *new-york*) |
-| Thème | « Aurantir » — base slate, accent ambre, dark mode par défaut |
-| Data / cache | TanStack React Query + Axios |
-| Formulaires | react-hook-form + Zod (via Standard Schema resolver) |
-| Graphiques | Recharts (wrappers shadcn `chart`) |
-| Cartes | Leaflet / react-leaflet (chargé en `dynamic ssr:false`) |
-| Notifications | Sonner |
+## Structure du dépôt (monorepo)
+
+```
+One_Security/
+├── src/            ← Frontend Next.js (racine — déployé sur Vercel)
+├── public/
+├── package.json    ← app front (Next 16 / React 19 / Tailwind v4)
+├── aurantir-front-kit/   ← kit UI vendorisé (shell, design-system)
+└── apps/
+    └── api/        ← Backend NestJS 11 + Prisma 7  →  voir apps/api/README.md
+```
+
+Le **frontend reste à la racine** (Root Directory Vercel = `.`, déploiement
+inchangé). Le **backend** vit dans `apps/api` avec sa propre toolchain (pnpm,
+Prisma, Docker) — les deux stacks sont indépendantes (pas de workspace partagé).
+
+| Partie | Stack | Hébergement |
+|---|---|---|
+| Frontend (racine) | Next.js 16 · React 19 · Tailwind v4 · shadcn | Vercel — auto-deploy depuis `main` |
+| Backend (`apps/api`) | NestJS 11 · Prisma 7 · PostgreSQL | Docker → GHCR → hôte à définir |
+| Auth | Supabase Auth (JWT, `app_metadata.role`) | — |
 
 ## Démarrage
 
+**Frontend** (racine) :
+
 ```bash
 pnpm install
-cp .env.example .env.local   # renseigner NEXT_PUBLIC_API_URL
-pnpm dev                     # http://localhost:3000
+cp .env.example .env.local    # NEXT_PUBLIC_SUPABASE_URL / ANON_KEY, NEXT_PUBLIC_API_URL
+pnpm dev                      # http://localhost:3000
 ```
 
-Scripts : `pnpm dev` · `pnpm build` · `pnpm start` · `pnpm lint`
-Typecheck : `pnpm exec tsc --noEmit`
+**Backend** (`apps/api`) :
 
-## Architecture
+```bash
+cd apps/api
+pnpm install
+cp .env.example .env          # DATABASE_URL, SUPABASE_JWT_SECRET, …
+pnpm db:migrate
+pnpm start:dev                # http://localhost:4000/api  ·  docs /api/docs
+```
 
-```
-src/
-├── app/
-│   ├── (app)/              # Espace authentifié (shell sidebar + header)
-│   │   ├── layout.tsx      # SidebarProvider + AppSidebar + AppHeader
-│   │   ├── dashboard/      # KPI, graphiques, carte
-│   │   ├── agents/  sites/  incidents/  planning/  reports/  settings/  tenants/
-│   ├── (auth)/login/       # Écrans hors-shell (connexion)
-│   ├── layout.tsx          # <html lang=fr> + Providers globaux
-│   └── globals.css         # Thème (tokens oklch, palette graphiques)
-├── components/
-│   ├── ui/                 # Primitives shadcn (générées, éditables)
-│   ├── layout/             # Sidebar, header, theme-toggle, user-menu…
-│   ├── shared/             # StatCard, PageHeader, badges métier, guards…
-│   ├── charts/             # Wrappers Recharts
-│   ├── maps/               # Carte Leaflet + wrapper client
-│   ├── settings/  auth/    # Formulaires par domaine
-│   └── providers/          # Theme + React Query + Session + Tooltip + Toaster
-├── config/
-│   ├── roles.ts            # RBAC : permissions par rôle, can()/hasRole()
-│   ├── nav.ts              # Navigation (filtrée par permission)
-│   └── site.ts
-├── lib/
-│   ├── api/client.ts       # Axios + injection JWT + normalisation erreurs
-│   ├── auth/session.tsx    # Contexte session (démo, swappable → JWT/me)
-│   ├── format.ts           # Formatage fr-FR
-│   └── mock-data.ts        # Données typées (temporaire, forme = future API)
-└── types/                  # Types du domaine (Agent, Site, Incident, Shift…)
-```
+Détails backend : [`apps/api/README.md`](apps/api/README.md) ·
+Runbook de déploiement : [`apps/api/DEPLOY.md`](apps/api/DEPLOY.md).
 
 ## RBAC
 
-Six rôles : `SUPER_ADMIN`, `DIRIGEANT`, `EXPLOITATION`, `SUPERVISEUR`,
-`AGENT`, `CLIENT`. Les permissions (`ressource:action`) sont centralisées
-dans `src/config/roles.ts`. La navigation et les pages sont filtrées via
-`can(permission)` ; `<RequirePermission>` protège l'accès direct par URL
-(défense en profondeur — l'autorité fait foi côté backend).
+10 rôles métier sécurité (`dg, rp, rf, rh, manager, controleur, surveillant,
+juriste, comptable, agent`). Côté front, la source unique est `src/lib/rbac.ts`
+(menus, `SCREEN_META`, `canAccess`) ; côté API, RBAC par rôle + permissions
+(`@Roles` / `@Permissions`) avec RLS Supabase en défense en profondeur. Le rôle
+courant est porté par `app_metadata.role` dans le JWT Supabase.
 
-> **Mode démonstration** : un sélecteur de rôle (header) permet de visualiser
-> le RBAC sans backend d'auth. `src/lib/auth/session.tsx` sera hydraté depuis
-> le JWT / `/me` — l'API publique (`useSession`, `can`, `hasRole`) ne changera pas.
+## Déploiement & CI
 
-## Prochaines étapes
+- **Front** : chaque `git push` sur `main` déclenche un build de production
+  Vercel (alias `pilotepme-sandy.vercel.app`).
+- **API** : workflow [`.github/workflows/api-ci.yml`](.github/workflows/api-ci.yml)
+  — tests (Postgres) + build/push image Docker vers GHCR, déclenché uniquement
+  sur les changements de `apps/api/**`.
 
-- Brancher la session réelle (JWT) et retirer le `RoleSwitcher`.
-- Remplacer `mock-data.ts` par des hooks React Query (`src/lib/api`).
-- Ajouter Prettier + tests (Jest/RTL, Playwright) et le pipeline CI.
+## État & prochaines étapes
+
+- [x] Frontend reconstruit, déployé, auth Supabase, RBAC 10 rôles
+- [x] API construite (24 modèles Prisma, RBAC, `/me`, Swagger) — versionnée dans ce monorepo
+- [ ] **Refactor mono-tenant** de l'API (retirer la logique multi-tenant : modèle, controllers, services, DTO, tests)
+- [ ] Déployer l'API (Docker → hôte), renseigner `NEXT_PUBLIC_API_URL`, basculer `DEMO_AUTH=false`
+- [ ] Brancher le front sur l'API réelle ; écrans `sites / rondes / incidents / conformite / contentieux`
+- [ ] Migrations Supabase (RLS, Storage, sync `auth.users → User`)

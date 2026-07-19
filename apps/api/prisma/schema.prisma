@@ -1,0 +1,809 @@
+// PilotePME — schéma de données (SaaS de sécurité privée / gardiennage).
+// Prisma 7 · PostgreSQL (Supabase).
+//
+// Adaptations Supabase :
+//  - L'authentification (mot de passe, sessions) est gérée par Supabase Auth
+//    (`auth.users`). `User.id` reprend l'UID Supabase → pas de champ motDePasse ici.
+//  - `Fichier` référence un objet Supabase Storage (bucket + chemin).
+//  - RLS activée au niveau DB (voir supabase/ migrations) en défense en profondeur.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────── Énumérations ───────────────────────────────
+
+/// Nom de rôle (valeur de `Role.nom`). Sert aussi de rôle primaire sur User
+/// (claim JWT `app_metadata.role`) pour le contrôle d'accès « gros grain ».
+enum RoleName {
+  DG // Directeur Général
+  RP // Responsable des Prestations
+  RF // Responsable Financier
+  RH // Ressources Humaines
+  MANAGER
+  CONTROLEUR
+  SURVEILLANT
+  JURISTE
+  COMPTABLE
+  AGENT
+}
+
+enum SiteType {
+  ENTREPRISE
+  CHANTIER
+  EVENEMENT
+  RESIDENTIEL
+  COMMERCE
+  AUTRE
+}
+
+enum ContratType {
+  PRESTATION
+  MISE_A_DISPOSITION
+  PONCTUEL
+}
+
+enum FrequenceFacturation {
+  MENSUELLE
+  TRIMESTRIELLE
+  SEMESTRIELLE
+  ANNUELLE
+  PONCTUELLE
+}
+
+enum MaterielType {
+  VEHICULE
+  ARME
+  EQUIPEMENT
+  UNIFORME
+  RADIO
+  AUTRE
+}
+
+enum EtatMateriel {
+  NEUF
+  BON
+  USE
+  HORS_SERVICE
+}
+
+enum FormeJuridique {
+  SA
+  SARL
+  SAS
+  SASU
+  EURL
+  EI
+  ASSOCIATION
+  AUTRE
+}
+
+enum Civilite {
+  M
+  MME
+  MLLE
+}
+
+enum RoleContact {
+  DECIDEUR
+  PRESCRIPTEUR
+  SIGNATAIRE
+  AUTRE
+}
+
+enum StatutProspect {
+  NOUVEAU
+  CONTACTE
+  RELANCE
+  PERDU
+  TRANSFORME
+}
+
+enum OrigineProspect {
+  APPEL_ENTRANT
+  PROSPECTION
+  RECOMMANDATION
+  SITE_WEB
+  SALON
+  AUTRE
+}
+
+enum StatutDevis {
+  BROUILLON
+  ENVOYE
+  RELANCE
+  ACCEPTE
+  REFUSE
+  EXPIRE
+}
+
+enum FactureType {
+  ACOMPTE
+  SOLDE
+  COMPLETE
+  AVOIR
+}
+
+enum StatutFacture {
+  EMISE
+  ENVOYEE
+  PAYEE
+  EN_RETARD
+  LITIGE
+  ANNULEE
+}
+
+enum MoyenPaiement {
+  VIREMENT
+  CHEQUE
+  ESPECES
+  CARTE
+  PRELEVEMENT
+}
+
+enum CategorieDepense {
+  CARBURANT
+  FOURNITURES
+  ASSURANCES
+  LOYER
+  MAINTENANCE
+  EQUIPEMENT
+  AUTRE
+}
+
+enum StatutAvance {
+  DEMANDEE
+  VALIDEE
+  REFUSEE
+  REMBOURSEE
+}
+
+enum StatutRonde {
+  PLANIFIEE
+  EN_COURS
+  TERMINEE
+  MANQUEE
+}
+
+enum StatutCheckpoint {
+  EN_ATTENTE
+  VALIDE
+  MANQUE
+}
+
+enum TypePointage {
+  ARRIVEE
+  DEPART
+}
+
+enum TypeIncident {
+  AGRESSION
+  MALVEILLANCE
+  INCENDIE
+  RIXE
+  INTRUSION
+  VOL
+  ACCIDENT
+  AUTRE
+}
+
+enum CriticiteIncident {
+  FAIBLE
+  MODEREE
+  ELEVEE
+  CRITIQUE
+}
+
+enum StatutIncident {
+  NOUVEAU
+  EN_COURS
+  CLOTURE
+}
+
+/// Entité cible d'un commentaire (polymorphe).
+enum EntiteCommentaire {
+  PROSPECT
+  CLIENT
+  CONTRAT
+  FACTURE
+  DEVIS
+  SITE
+  INCIDENT
+}
+
+// ─────────────────────────────────── Noyau ──────────────────────────────────
+
+/// Utilisateur = tout collaborateur (les 10 rôles). L'auth est déléguée à
+/// Supabase Auth ; `id` reprend l'UID `auth.users`.
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  nom          String
+  prenom       String
+  email        String    @unique
+  /// Rôle primaire (affichage + guard coarse). Détail fin via `roles`.
+  role         RoleName
+  dateEmbauche DateTime  @db.Date
+  dateDepart   DateTime? @db.Date
+  actif        Boolean   @default(true)
+  telephone    String?
+  avatarUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  contrats           Contrat[]          @relation("ContratAgents")
+  bulletins          BulletinPaie[]
+  avances            AvanceSalaire[]
+  pointages          Pointage[]
+  rondes             RondeAgent[]
+  incidentsInternes  IncidentSecurite[] @relation("IncidentIntervenants")
+  canaux             Canal[]            @relation("CanalMembres")
+  messages           Message[]
+  commentaires       Commentaire[]
+  fichiersTeleverses Fichier[]          @relation("FichierUploader")
+
+  // RBAC fin : attributions de rôles (M2M) + rôles attribués par cet utilisateur
+  roles          UtilisateurRole[] @relation("UtilisateurRoles")
+  rolesAttribues UtilisateurRole[] @relation("RoleAttribuePar")
+
+  @@index([role])
+  @@index([actif])
+}
+
+/// Client final (donneur d'ordre).
+model Client {
+  id                 String         @id @default(uuid()) @db.Uuid
+  raisonSociale      String
+  formeJuridique     FormeJuridique
+  siret              String?        @unique
+  nafCode            String?
+  adresseFacturation String
+  adresseSiege       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+  contrats Contrat[]
+  factures Facture[]
+  sites    Site[]
+
+  @@index([raisonSociale])
+}
+
+model Contact {
+  id              String      @id @default(uuid()) @db.Uuid
+  civilite        Civilite
+  nom             String
+  prenom          String
+  fonction        String?
+  email           String?
+  telephoneFixe   String?
+  telephoneMobile String?
+  roleContact     RoleContact @default(AUTRE)
+
+  clientId   String?   @db.Uuid
+  client     Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  prospectId String?   @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([prospectId])
+}
+
+/// Site gardé (lieu de la prestation).
+model Site {
+  id         String   @id @default(uuid()) @db.Uuid
+  nom        String
+  adresse    String
+  latitude   Float?
+  longitude  Float?
+  type       SiteType
+  superficie Float?
+  photoUrl   String?
+
+  clientId String @db.Uuid
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contrats  Contrat[]
+  devis     Devis[]
+  rondes    RondeAgent[]
+  incidents IncidentSecurite[]
+  pointages Pointage[]
+
+  @@index([clientId])
+  @@index([type])
+}
+
+/// Contrat de prestation de sécurité.
+model Contrat {
+  id                   String               @id @default(uuid()) @db.Uuid
+  numero               String               @unique
+  dateSignature        DateTime             @db.Date
+  dateDebut            DateTime             @db.Date
+  dateFin              DateTime?            @db.Date
+  type                 ContratType
+  description          String?
+  montantHT            Decimal              @db.Decimal(12, 2)
+  tauxTVA              Decimal              @default(20) @db.Decimal(5, 2)
+  frequenceFacturation FrequenceFacturation
+
+  clientId String @db.Uuid
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  siteId   String @db.Uuid
+  site     Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  agents    User[]     @relation("ContratAgents")
+  materiels Materiel[] @relation("ContratMateriels")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([siteId])
+  @@index([dateDebut, dateFin])
+}
+
+model Materiel {
+  id              String       @id @default(uuid()) @db.Uuid
+  type            MaterielType
+  marque          String?
+  modele          String?
+  numeroSerie     String?      @unique
+  quantite        Int          @default(1)
+  coutAcquisition Decimal?     @db.Decimal(12, 2)
+  dateAcquisition DateTime?    @db.Date
+  etat            EtatMateriel @default(BON)
+  disponible      Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contrats Contrat[] @relation("ContratMateriels")
+
+  @@index([type])
+  @@index([disponible])
+}
+
+// ──────────────────────────────────── CRM ───────────────────────────────────
+
+model Prospect {
+  id                       String          @id @default(uuid()) @db.Uuid
+  raisonSociale            String
+  siret                    String?
+  adresse                  String?
+  statut                   StatutProspect  @default(NOUVEAU)
+  origine                  OrigineProspect @default(AUTRE)
+  notes                    String?
+  chiffreAffairesPotentiel Decimal?        @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+  devis    Devis[]
+
+  @@index([statut])
+}
+
+model Devis {
+  id        String      @id @default(uuid()) @db.Uuid
+  numero    String      @unique
+  dateEnvoi DateTime?   @db.Date
+  totalHT   Decimal     @default(0) @db.Decimal(12, 2)
+  totalTTC  Decimal     @default(0) @db.Decimal(12, 2)
+  statut    StatutDevis @default(BROUILLON)
+
+  prospectId String?   @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  siteId     String?   @db.Uuid
+  site       Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lignes   DevisLigne[]
+  factures Facture[]
+
+  @@index([prospectId])
+  @@index([statut])
+}
+
+/// Ligne de prestation d'un devis.
+model DevisLigne {
+  id             String  @id @default(uuid()) @db.Uuid
+  description    String
+  quantite       Decimal @default(1) @db.Decimal(10, 2)
+  prixUnitaireHT Decimal @db.Decimal(12, 2)
+  tauxTVA        Decimal @default(20) @db.Decimal(5, 2)
+
+  devisId String @db.Uuid
+  devis   Devis  @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@index([devisId])
+}
+
+// ────────────────────────────────── Finance ─────────────────────────────────
+
+model Facture {
+  id            String         @id @default(uuid()) @db.Uuid
+  numero        String         @unique
+  dateEmission  DateTime       @db.Date
+  dateEcheance  DateTime       @db.Date
+  montantHT     Decimal        @db.Decimal(12, 2)
+  montantTVA    Decimal        @db.Decimal(12, 2)
+  montantTTC    Decimal        @db.Decimal(12, 2)
+  type          FactureType    @default(COMPLETE)
+  statut        StatutFacture  @default(EMISE)
+  moyenPaiement MoyenPaiement?
+
+  clientId String  @db.Uuid
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  devisId  String? @db.Uuid
+  devis    Devis?  @relation(fields: [devisId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encaissements Encaissement[]
+
+  @@index([clientId])
+  @@index([statut])
+  @@index([dateEcheance])
+}
+
+model Encaissement {
+  id               String   @id @default(uuid()) @db.Uuid
+  dateEncaissement DateTime @db.Date
+  montant          Decimal  @db.Decimal(12, 2)
+  reference        String?
+
+  factureId        String         @db.Uuid
+  facture          Facture        @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  compteBancaireId String         @db.Uuid
+  compteBancaire   CompteBancaire @relation(fields: [compteBancaireId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([factureId])
+  @@index([compteBancaireId])
+}
+
+model Depense {
+  id             String           @id @default(uuid()) @db.Uuid
+  dateEngagement DateTime         @db.Date
+  datePaiement   DateTime?        @db.Date
+  objet          String
+  montantHT      Decimal          @db.Decimal(12, 2)
+  montantTVA     Decimal          @default(0) @db.Decimal(12, 2)
+  categorie      CategorieDepense
+
+  fournisseurId    String?         @db.Uuid
+  fournisseur      Fournisseur?    @relation(fields: [fournisseurId], references: [id], onDelete: SetNull)
+  compteBancaireId String?         @db.Uuid
+  compteBancaire   CompteBancaire? @relation(fields: [compteBancaireId], references: [id], onDelete: SetNull)
+  justificatifId   String?         @unique @db.Uuid
+  justificatif     Fichier?        @relation(fields: [justificatifId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categorie])
+  @@index([fournisseurId])
+}
+
+model Fournisseur {
+  id            String  @id @default(uuid()) @db.Uuid
+  raisonSociale String
+  siret         String?
+  email         String?
+  telephone     String?
+  adresse       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  depenses Depense[]
+}
+
+model Banque {
+  id  String  @id @default(uuid()) @db.Uuid
+  nom String
+  bic String?
+
+  comptes CompteBancaire[]
+}
+
+model CompteBancaire {
+  id           String  @id @default(uuid()) @db.Uuid
+  nom          String
+  iban         String  @unique
+  bicSwift     String?
+  soldeInitial Decimal @default(0) @db.Decimal(14, 2)
+
+  banqueId String? @db.Uuid
+  banque   Banque? @relation(fields: [banqueId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encaissements Encaissement[]
+  depenses      Depense[]
+}
+
+// ──────────────────────────────────── RH ────────────────────────────────────
+
+model AvanceSalaire {
+  id      String       @id @default(uuid()) @db.Uuid
+  montant Decimal      @db.Decimal(12, 2)
+  date    DateTime     @db.Date
+  motif   String?
+  statut  StatutAvance @default(DEMANDEE)
+
+  agentId String @db.Uuid
+  agent   User   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId])
+  @@index([statut])
+}
+
+model BulletinPaie {
+  id                  String  @id @default(uuid()) @db.Uuid
+  periode             String // "AAAA-MM"
+  salaireBrut         Decimal @db.Decimal(12, 2)
+  salaireNet          Decimal @db.Decimal(12, 2)
+  cotisationsSociales Decimal @db.Decimal(12, 2)
+  heuresTravaillees   Decimal @default(0) @db.Decimal(7, 2)
+
+  agentId   String   @db.Uuid
+  agent     User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  fichierId String?  @unique @db.Uuid
+  fichier   Fichier? @relation(fields: [fichierId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([agentId, periode])
+  @@index([periode])
+}
+
+// ─────────────────────────────── Collaboration ──────────────────────────────
+
+model Canal {
+  id          String  @id @default(uuid()) @db.Uuid
+  nom         String
+  description String?
+  prive       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  membres  User[]    @relation("CanalMembres")
+  messages Message[]
+}
+
+model Message {
+  id      String @id @default(uuid()) @db.Uuid
+  contenu String
+
+  canalId  String @db.Uuid
+  canal    Canal  @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  auteurId String @db.Uuid
+  auteur   User   @relation(fields: [auteurId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([canalId])
+}
+
+/// Commentaire polymorphe (attaché à Prospect / Client / Contrat / Facture…).
+model Commentaire {
+  id              String            @id @default(uuid()) @db.Uuid
+  contenu         String
+  datePublication DateTime          @default(now())
+  entite          EntiteCommentaire
+  idEntite        String            @db.Uuid
+
+  auteurId String        @db.Uuid
+  auteur   User          @relation(fields: [auteurId], references: [id], onDelete: Cascade)
+  parentId String?       @db.Uuid
+  parent   Commentaire?  @relation("CommentaireReponses", fields: [parentId], references: [id], onDelete: Cascade)
+  reponses Commentaire[] @relation("CommentaireReponses")
+
+  @@index([entite, idEntite])
+  @@index([auteurId])
+}
+
+// ──────────────────────── Terrain (rondes & incidents) ───────────────────────
+
+/// Pointage géolocalisé (prise/fin de poste).
+model Pointage {
+  id        String       @id @default(uuid()) @db.Uuid
+  type      TypePointage
+  dateHeure DateTime     @default(now())
+  latitude  Float?
+  longitude Float?
+
+  agentId String  @db.Uuid
+  agent   User    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  siteId  String? @db.Uuid
+  site    Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  ronde RondeAgent?
+
+  @@index([agentId, dateHeure])
+}
+
+/// Ronde effectuée par un agent (checkpoints + anomalies).
+model RondeAgent {
+  id           String      @id @default(uuid()) @db.Uuid
+  statut       StatutRonde @default(PLANIFIEE)
+  debut        DateTime?
+  fin          DateTime?
+  commentaires String?
+
+  agentId    String    @db.Uuid
+  agent      User      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  siteId     String?   @db.Uuid
+  site       Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  pointageId String?   @unique @db.Uuid
+  pointage   Pointage? @relation(fields: [pointageId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checkpoints Checkpoint[]
+  anomalies   IncidentSecurite[] @relation("RondeAnomalies")
+
+  @@index([agentId])
+  @@index([statut])
+}
+
+model Checkpoint {
+  id           String           @id @default(uuid()) @db.Uuid
+  nom          String
+  ordre        Int
+  latitude     Float?
+  longitude    Float?
+  statut       StatutCheckpoint @default(EN_ATTENTE)
+  heurePassage DateTime?
+
+  rondeId String     @db.Uuid
+  ronde   RondeAgent @relation(fields: [rondeId], references: [id], onDelete: Cascade)
+
+  @@index([rondeId])
+}
+
+/// Incident de sécurité (main courante).
+model IncidentSecurite {
+  id                   String            @id @default(uuid()) @db.Uuid
+  dateHeure            DateTime          @default(now())
+  type                 TypeIncident
+  description          String
+  criticite            CriticiteIncident @default(MODEREE)
+  statut               StatutIncident    @default(NOUVEAU)
+  intervenantsExternes String[]          @default([])
+  dommagesMateriels    String?
+  dommagesCorporels    String?
+  mesuresPrises        String?
+
+  siteId  String?     @db.Uuid
+  site    Site?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  rondeId String?     @db.Uuid
+  ronde   RondeAgent? @relation("RondeAnomalies", fields: [rondeId], references: [id], onDelete: SetNull)
+
+  intervenantsInternes User[]    @relation("IncidentIntervenants")
+  fichiers             Fichier[] @relation("IncidentFichiers")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([criticite])
+  @@index([statut])
+  @@index([siteId])
+  @@index([dateHeure])
+}
+
+// ─────────────────────────── Fichiers (Supabase Storage) ────────────────────
+
+/// Référence vers un objet Supabase Storage (justificatifs, photos, PDF…).
+model Fichier {
+  id       String  @id @default(uuid()) @db.Uuid
+  nom      String
+  bucket   String
+  chemin   String // chemin/objet dans le bucket
+  mimeType String?
+  taille   Int?
+
+  uploadedById String? @db.Uuid
+  uploadedBy   User?   @relation("FichierUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  // Relations inverses (usages)
+  depense    Depense?
+  bulletin   BulletinPaie?
+  incidentId String?           @db.Uuid
+  incident   IncidentSecurite? @relation("IncidentFichiers", fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+}
+
+// ─────────────────────────── RBAC (rôles & permissions) ─────────────────────
+
+/// Rôle applicatif (référentiel). `nom` est contraint par l'énumération.
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  nom         RoleName @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  utilisateurs UtilisateurRole[]
+  permissions  RolePermission[]
+
+  @@index([nom])
+}
+
+/// Attribution d'un rôle à un utilisateur (M2M enrichie : traçabilité).
+model UtilisateurRole {
+  id              String    @id @default(uuid()) @db.Uuid
+  dateAttribution DateTime  @default(now())
+  dateRetrait     DateTime? // null = attribution active
+
+  utilisateurId String @db.Uuid
+  utilisateur   User   @relation("UtilisateurRoles", fields: [utilisateurId], references: [id], onDelete: Cascade)
+  roleId        String @db.Uuid
+  role          Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  // Auteur de l'attribution (un DG). Conservé même si le compte est supprimé.
+  attribueParId String? @db.Uuid
+  attribuePar   User?   @relation("RoleAttribuePar", fields: [attribueParId], references: [id], onDelete: SetNull)
+
+  @@unique([utilisateurId, roleId])
+  @@index([utilisateurId])
+  @@index([roleId])
+  @@index([dateRetrait])
+}
+
+/// Permission unitaire (ex. `creerClient`, `validerFacture`, `consulterPlanning`).
+model Permission {
+  id          String  @id @default(uuid()) @db.Uuid
+  nom         String  @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@index([nom])
+}
+
+/// Association rôle ↔ permission.
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  roleId       String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String     @db.Uuid
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
