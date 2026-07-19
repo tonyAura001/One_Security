@@ -1,10 +1,13 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { SHIFTS, SITES } from "@/lib/api/data";
+import { fetchShifts } from "@/lib/supabase/data/planning";
 import type { Shift } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText, toneTint } from "@/lib/colors";
@@ -44,15 +47,16 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-const AGENTS = Array.from(new Set(SHIFTS.map((s) => s.agent)));
-
 const shiftKey = (agent: string, day: number): string => `${agent}|${day}`;
-const SHIFT_INDEX = new Map<string, Shift>(
-  SHIFTS.map((s) => [shiftKey(s.agent, s.day), s]),
-);
 
 export function OpsPlanning() {
   const [site, setSite] = useState<string>("all");
+  const { data, isSuccess } = useQuery({ queryKey: ["shifts"], queryFn: fetchShifts });
+  const shifts = isSuccess && data.length > 0 ? data : SHIFTS;
+  const AGENTS = Array.from(new Set(shifts.map((s) => s.agent)));
+  const SHIFT_INDEX = new Map<string, Shift>(
+    shifts.map((s) => [shiftKey(s.agent, s.day), s]),
+  );
 
   return (
     <ScreenContainer>
@@ -127,6 +131,7 @@ export function OpsPlanning() {
               agent={agent}
               tone={AVATAR_TONES[i % AVATAR_TONES.length]}
               site={site}
+              shiftIndex={SHIFT_INDEX}
             />
           ))}
         </div>
@@ -139,10 +144,12 @@ function PlanningRow({
   agent,
   tone,
   site,
+  shiftIndex,
 }: {
   agent: string;
   tone: Tone;
   site: string;
+  shiftIndex: Map<string, Shift>;
 }) {
   return (
     <>
@@ -159,7 +166,7 @@ function PlanningRow({
         <span className="truncate">{agent}</span>
       </div>
       {DAYS.map((d) => {
-        const shift = SHIFT_INDEX.get(shiftKey(agent, d.index));
+        const shift = shiftIndex.get(shiftKey(agent, d.index));
         if (!shift || (site !== "all" && shift.site !== site)) {
           return (
             <div
