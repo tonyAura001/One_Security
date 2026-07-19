@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangle, Banknote, Clock, Plus, Target } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
 import { CONTRACTS, INVOICES, QUOTES } from "@/lib/api/data";
+import { fetchInvoices } from "@/lib/supabase/data/invoices";
 import type {
   Contract,
   ContractStatus,
@@ -194,9 +196,16 @@ const TAB_LABELS: Record<FinanceTab, { cta: string; placeholder: string }> = {
 export function FinanceFacturation() {
   const [tab, setTab] = useState<FinanceTab>("factures");
 
-  const paid = INVOICES.filter((i) => i.status === "payee");
-  const sent = INVOICES.filter((i) => i.status === "envoyee");
-  const late = INVOICES.filter((i) => i.status === "retard");
+  // Factures réelles via Supabase (RLS finance) ; repli démo si accès refusé.
+  const { data, isSuccess } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: fetchInvoices,
+  });
+  const invoices = isSuccess && data.length > 0 ? data : INVOICES;
+
+  const paid = invoices.filter((i) => i.status === "payee");
+  const sent = invoices.filter((i) => i.status === "envoyee");
+  const late = invoices.filter((i) => i.status === "retard");
   const encaisse = sum(paid);
   const attente = sum(sent);
   const retard = sum(late);
@@ -269,7 +278,7 @@ export function FinanceFacturation() {
         {tab === "factures" && (
           <DataTable
             columns={invoiceColumns}
-            data={INVOICES}
+            data={invoices}
             searchable
             searchPlaceholder={meta.placeholder}
             emptyTitle="Aucune facture"
