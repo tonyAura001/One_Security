@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -35,9 +37,7 @@ import {
 } from "@/components/ui/chart-card";
 import {
   getAccounts,
-  getBalanceSeries,
   getMovements,
-  getTreasuryStats,
   ACCOUNT_KIND_META,
   METHOD_META,
   type Account,
@@ -112,11 +112,21 @@ const columns: ColumnDef<Movement>[] = [
   },
 ];
 
+import {
+  fetchAccounts,
+  fetchMovements,
+  computeBalanceSeries,
+  computeTreasuryStats,
+} from "@/lib/supabase/data/treasury";
+
 export function TresorerieScreen() {
-  const accounts = useMemo(() => getAccounts(), []);
-  const movements = useMemo(() => getMovements(), []);
-  const series = useMemo(() => getBalanceSeries(), []);
-  const stats = useMemo(() => getTreasuryStats(), []);
+  // Trésorerie réelle via Supabase (RLS finance) ; repli démo si accès refusé.
+  const accQ = useQuery({ queryKey: ["treasury-accounts"], queryFn: fetchAccounts });
+  const movQ = useQuery({ queryKey: ["treasury-movements"], queryFn: fetchMovements });
+  const accounts = accQ.isSuccess && accQ.data.length > 0 ? accQ.data : getAccounts();
+  const movements = movQ.isSuccess && movQ.data.length > 0 ? movQ.data : getMovements();
+  const series = useMemo(() => computeBalanceSeries(accounts, movements), [accounts, movements]);
+  const stats = useMemo(() => computeTreasuryStats(accounts, movements), [accounts, movements]);
 
   return (
     <ScreenContainer>
