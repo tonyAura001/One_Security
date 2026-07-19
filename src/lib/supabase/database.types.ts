@@ -131,7 +131,7 @@ export type Database = {
           "createdAt": string;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "periode": string;
           "salaireBrut": number;
           "salaireNet": number;
@@ -735,7 +735,7 @@ export type Database = {
           "candidatureId": string | null;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "nom": string;
           "bucket": string;
           "chemin": string;
@@ -872,7 +872,7 @@ export type Database = {
           "updatedAt": string;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "type": Database["public"]["Enums"]["MaterielType"];
           "marque"?: string | null;
           "modele"?: string | null;

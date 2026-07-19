@@ -31,6 +31,7 @@ import {
   NouveauPosteDialog,
   NouvelleCandidatureDialog,
 } from "./recrutement-dialogs";
+import { CandidatureFiles } from "./candidature-files";
 
 const POSTE_STATUT: Record<string, { variant: PillVariant; label: string }> = {
   ouvert: { variant: "success", label: "Ouvert" },
@@ -328,6 +329,7 @@ export function RecrutementScreen() {
                         );
                       })}
                     </div>
+                    <CandidatureFiles candidatureId={c.id} />
                   </div>
                 )}
               </div>
