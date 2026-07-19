@@ -10,7 +10,6 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
-import { PRODUCTS } from "@/lib/api/data";
 import { fetchProduits } from "@/lib/supabase/data/caisse";
 import type { Product } from "@/lib/api/types";
 import { formatFCFACompact, formatNumberFR } from "@/lib/format";
@@ -88,11 +87,11 @@ const columns: ColumnDef<StockRow>[] = [
 ];
 
 export function CaissierStock() {
-  const { data, isSuccess } = useQuery({ queryKey: ["produits"], queryFn: fetchProduits });
-  const products = isSuccess && data.length > 0 ? data : PRODUCTS;
+  const { data } = useQuery({ queryKey: ["produits"], queryFn: fetchProduits });
+  const products = data ?? [];
   const rows = useMemo<StockRow[]>(
     () => products.map((p) => ({ ...p, state: stockState(p) })),
-    [],
+    [products],
   );
 
   const ruptures = rows.filter((r) => r.state === "rupture").length;

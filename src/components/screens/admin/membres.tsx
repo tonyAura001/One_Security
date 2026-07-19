@@ -41,15 +41,13 @@ import { toast } from "@/lib/toast";
 export function AdminMembres() {
   const { members, suspend, reactivate, revoke, invite } = useMembersStore();
   // Hydrate le store depuis la table User (RLS DG/RH) ; repli SEED démo sinon.
-  const { data, isSuccess } = useQuery({
+  const { data } = useQuery({
     queryKey: ["members"],
     queryFn: fetchMembers,
   });
   useEffect(() => {
-    if (isSuccess && data.length > 0) {
-      useMembersStore.setState({ members: data });
-    }
-  }, [isSuccess, data]);
+    useMembersStore.setState({ members: data ?? [] });
+  }, [data]);
   const [query, setQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
 

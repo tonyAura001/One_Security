@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatNumberFR, formatFCFA } from "@/lib/format";
-import { PAYSLIPS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchPayslips } from "@/lib/supabase/data/payroll";
 
 const BANKS = ["CBAO", "BICIS", "SGBS", "Ecobank", "Bank of Africa"] as const;
@@ -23,11 +23,11 @@ function ibanFor(index: number): string {
 }
 
 export function ComptaExportPaie() {
-  const { data, isSuccess } = useQuery({
+  const { data } = useQuery({
     queryKey: ["payslips"],
     queryFn: () => fetchPayslips(),
   });
-  const payslips = isSuccess && data.length > 0 ? data : PAYSLIPS;
+  const payslips = data ?? [];
   const total = payslips.reduce((sum, p) => sum + p.net, 0);
   const count = payslips.length;
 
@@ -76,6 +76,10 @@ export function ComptaExportPaie() {
             </div>
           </div>
         ))}
+
+        {payslips.length === 0 && (
+          <EmptyState title="Aucune donnée pour le moment" />
+        )}
 
         {/* Footer / total + actions */}
         <div className="border-border mt-4 flex flex-wrap items-center justify-between gap-3 border-t-2 pt-4">

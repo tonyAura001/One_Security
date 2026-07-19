@@ -10,7 +10,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import {
-  getSuppliers,
   SUPPLIER_CATEGORY_META,
   SUPPLIER_STATUS_META,
   type Supplier,
@@ -89,12 +88,12 @@ const columns: ColumnDef<Supplier>[] = [
 ];
 
 export function FournisseursScreen() {
-  // Fournisseurs réels via Supabase (RLS finance) ; repli démo si accès refusé.
-  const { data, isSuccess } = useQuery({
+  // Fournisseurs réels via Supabase (RLS finance).
+  const { data } = useQuery({
     queryKey: ["suppliers"],
     queryFn: fetchSuppliers,
   });
-  const suppliers = isSuccess && data.length > 0 ? data : getSuppliers();
+  const suppliers = data ?? [];
   const stats = useMemo(() => computeSupplierStats(suppliers), [suppliers]);
 
   return (

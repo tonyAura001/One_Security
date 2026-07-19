@@ -36,13 +36,12 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart-card";
 import {
-  getAccounts,
-  getMovements,
   ACCOUNT_KIND_META,
   METHOD_META,
   type Account,
   type Movement,
 } from "@/lib/api/treasury";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatFCFA, formatFCFACompact, formatDateFR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -120,11 +119,11 @@ import {
 } from "@/lib/supabase/data/treasury";
 
 export function TresorerieScreen() {
-  // Trésorerie réelle via Supabase (RLS finance) ; repli démo si accès refusé.
+  // Trésorerie réelle via Supabase (RLS finance).
   const accQ = useQuery({ queryKey: ["treasury-accounts"], queryFn: fetchAccounts });
   const movQ = useQuery({ queryKey: ["treasury-movements"], queryFn: fetchMovements });
-  const accounts = accQ.isSuccess && accQ.data.length > 0 ? accQ.data : getAccounts();
-  const movements = movQ.isSuccess && movQ.data.length > 0 ? movQ.data : getMovements();
+  const accounts = accQ.data ?? [];
+  const movements = movQ.data ?? [];
   const series = useMemo(() => computeBalanceSeries(accounts, movements), [accounts, movements]);
   const stats = useMemo(() => computeTreasuryStats(accounts, movements), [accounts, movements]);
 
@@ -189,6 +188,9 @@ export function TresorerieScreen() {
           <div className="text-foreground mb-1 text-[15px] font-extrabold tracking-[-0.3px]">
             Comptes
           </div>
+          {accounts.length === 0 && (
+            <EmptyState title="Aucun compte pour le moment" />
+          )}
           {accounts.map((acc) => (
             <AccountRow key={acc.id} account={acc} />
           ))}

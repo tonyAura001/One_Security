@@ -13,6 +13,7 @@ import { RouteGuard } from "./route-guard";
 import { PageTitleBar } from "./page-title-bar";
 import { ViewAsBar } from "./view-as-bar";
 import { buildSidebarNav } from "./sidebar-nav-adapter";
+import { logout } from "@/lib/auth/actions";
 
 /**
  * Application shell = le `DashboardShell` du kit Aurantir. Sa Sidebar
@@ -69,6 +70,7 @@ export function KitShell({
           initials: user.initials,
           role: user.fonction,
         },
+        onLogout: logout,
       }}
     >
       <div className="mx-auto w-full max-w-[1440px]">

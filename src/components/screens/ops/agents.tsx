@@ -27,7 +27,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  getAgents,
   cardNeedsRenewal,
   daysUntilCardExpiry,
   AGENT_STATUS_META,
@@ -133,9 +132,9 @@ function useColumns(onSelect: (a: Agent) => void): ColumnDef<Agent>[] {
 }
 
 export function AgentsScreen() {
-  // Agents réels via Supabase (RLS) ; repli démo si accès refusé.
+  // Agents réels via Supabase (RLS).
   const agentsQ = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
-  const allAgents = agentsQ.isSuccess && agentsQ.data.length > 0 ? agentsQ.data : getAgents();
+  const allAgents = agentsQ.data ?? [];
   const stats = useMemo(() => computeAgentStats(allAgents), [allAgents]);
   const [status, setStatus] = useState<StatusFilter>("tous");
   const [site, setSite] = useState<string>("tous");

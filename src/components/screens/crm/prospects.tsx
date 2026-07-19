@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import {
-  getProspects,
   STAGE_META,
   type PipelineStage,
   type Prospect,
@@ -37,18 +36,18 @@ function columnOf(p: Prospect): string {
 }
 
 export function ProspectsScreen() {
-  // Pipeline réel via Supabase (RLS commerce) ; repli démo si accès refusé.
+  // Pipeline réel via Supabase (RLS commerce).
   const { data, isSuccess } = useQuery({
     queryKey: ["prospects"],
     queryFn: fetchProspects,
   });
-  const [prospects, setProspects] = useState<Prospect[]>(() => getProspects());
+  const [prospects, setProspects] = useState<Prospect[]>([]);
   useEffect(() => {
-    if (isSuccess && data.length > 0) setProspects(data);
-  }, [isSuccess, data]);
+    if (data) setProspects(data);
+  }, [data]);
 
   const stats = useMemo(() => computeProspectStats(prospects), [prospects]);
-  const live = isSuccess && data.length > 0;
+  const live = isSuccess;
 
   function handleMove(id: string, toColumn: string) {
     const nextStage: PipelineStage =

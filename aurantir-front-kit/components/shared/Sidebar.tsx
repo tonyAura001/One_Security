@@ -6,10 +6,10 @@ import { cn } from '@/aurantir-front-kit/lib/utils'
 import { useAppStore } from '@/aurantir-front-kit/lib/store/app.store'
 import {
   LayoutDashboard, FolderKanban, Users, FileText, BarChart3,
-  BookOpen, Calendar, MessageSquare, Bell, Target, Settings,
+  BookOpen, Calendar, MessageSquare, Target, Settings,
   ChevronLeft, ChevronRight, TrendingUp, Building2, Briefcase,
   Package, Megaphone, Shield, CreditCard, Receipt,
-  Wallet, ChevronDown, Zap, X, StickyNote, Database
+  Wallet, ChevronDown, Zap, X, StickyNote, Database, LogOut
 } from 'lucide-react'
 
 const ICON_STROKE = 1.5
@@ -182,9 +182,11 @@ export interface SidebarProps {
   brand?: { name: string; tagline: string }
   userRole?: string
   profile?: { name: string; initials: string; role: string }
+  /** Server action de déconnexion (injectée par l'app — cf. kit-shell). */
+  onLogout?: () => void | Promise<void>
 }
 
-export function Sidebar({ nav, brand, userRole, profile }: SidebarProps = {}) {
+export function Sidebar({ nav, brand, userRole, profile, onLogout }: SidebarProps = {}) {
   const { sidebarCollapsed, toggleSidebar, mobileNavOpen, closeMobileNav, user, entiteActive, messagerieUnread } = useAppStore()
   const items = nav ?? navigation
   const role = userRole ?? user?.role
@@ -244,13 +246,6 @@ export function Sidebar({ nav, brand, userRole, profile }: SidebarProps = {}) {
       {/* Footer */}
       <div className="border-t border-surface-border p-3 space-y-1">
         <Link
-          href="/notifications"
-          className={cn('sidebar-item', sidebarCollapsed && 'justify-center')}
-        >
-          <Bell size={16} strokeWidth={ICON_STROKE} />
-          {!sidebarCollapsed && <span>Notifications</span>}
-        </Link>
-        <Link
           href="/parametres"
           className={cn('sidebar-item', sidebarCollapsed && 'justify-center')}
         >
@@ -273,6 +268,23 @@ export function Sidebar({ nav, brand, userRole, profile }: SidebarProps = {}) {
               </p>
             </div>
           </div>
+        )}
+
+        {/* Déconnexion — câblée à la Server Action logout() */}
+        {onLogout && (
+          <form action={onLogout} className="mt-1">
+            <button
+              type="submit"
+              title="Se déconnecter"
+              className={cn(
+                'sidebar-item w-full text-red hover:bg-red/10',
+                sidebarCollapsed && 'justify-center',
+              )}
+            >
+              <LogOut size={16} strokeWidth={ICON_STROKE} />
+              {!sidebarCollapsed && <span>Se déconnecter</span>}
+            </button>
+          </form>
         )}
 
         {/* Toggle collapse (desktop seulement) */}

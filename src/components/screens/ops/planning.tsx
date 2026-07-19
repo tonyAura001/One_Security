@@ -3,10 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { CalendarOff } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
-import { SHIFTS, SITES } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchShifts } from "@/lib/supabase/data/planning";
 import type { Shift } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
@@ -51,31 +51,16 @@ const shiftKey = (agent: string, day: number): string => `${agent}|${day}`;
 
 export function OpsPlanning() {
   const [site, setSite] = useState<string>("all");
-  const { data, isSuccess } = useQuery({ queryKey: ["shifts"], queryFn: fetchShifts });
-  const shifts = isSuccess && data.length > 0 ? data : SHIFTS;
+  const { data } = useQuery({ queryKey: ["shifts"], queryFn: fetchShifts });
+  const shifts = data ?? [];
   const AGENTS = Array.from(new Set(shifts.map((s) => s.agent)));
+  const siteOptions = Array.from(new Set(shifts.map((s) => s.site)));
   const SHIFT_INDEX = new Map<string, Shift>(
     shifts.map((s) => [shiftKey(s.agent, s.day), s]),
   );
 
   return (
     <ScreenContainer>
-      {/* Coverage alert */}
-      <div className="border-warning/30 bg-warning/10 mb-4 flex items-center gap-3 rounded-2xl border px-[18px] py-3.5">
-        <span className="bg-warning/20 text-warning flex size-8 flex-none items-center justify-center rounded-[9px]">
-          <AlertTriangle className="size-[18px]" strokeWidth={1.9} />
-        </span>
-        <div>
-          <div className="text-foreground text-[13.5px] font-extrabold">
-            3 sites non couverts cette semaine
-          </div>
-          <div className="text-muted text-[12px] font-semibold">
-            Résidence Almadies (nuit), CBAO Indépendance (week-end), Eiffage
-            chantier (dimanche) — réaffectation requise
-          </div>
-        </div>
-      </div>
-
       {/* Filter + legend */}
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
         <label className="text-muted flex items-center gap-2 text-[12px] font-bold">
@@ -87,9 +72,9 @@ export function OpsPlanning() {
             className="border-border bg-surface text-foreground focus-visible:border-accent rounded-[10px] border px-3 py-2 text-[12px] font-bold outline-none"
           >
             <option value="all">Tous les sites</option>
-            {SITES.map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
+            {siteOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>
@@ -111,7 +96,16 @@ export function OpsPlanning() {
       </div>
 
       {/* Weekly grid */}
-      <Card className="overflow-x-auto p-4">
+      {shifts.length === 0 ? (
+        <Card className="p-4">
+          <EmptyState
+            icon={CalendarOff}
+            title="Aucun planning pour le moment"
+            description="Les vacations planifiées apparaîtront ici."
+          />
+        </Card>
+      ) : (
+        <Card className="overflow-x-auto p-4">
         <div className="grid min-w-[720px] [grid-template-columns:180px_repeat(5,minmax(74px,1fr))] gap-2">
           <div className="text-muted flex items-end pb-1.5 text-[10.5px] font-bold tracking-[0.4px]">
             AGENT
@@ -135,7 +129,8 @@ export function OpsPlanning() {
             />
           ))}
         </div>
-      </Card>
+        </Card>
+      )}
     </ScreenContainer>
   );
 }

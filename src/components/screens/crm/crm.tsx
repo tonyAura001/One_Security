@@ -11,7 +11,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatFCFACompact } from "@/lib/format";
-import { CLIENTS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchClients } from "@/lib/supabase/data/clients";
 import type { Client, ClientStatus } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
@@ -45,21 +45,32 @@ function initials(name: string): string {
 }
 
 export function CrmClients() {
-  // Données réelles via Supabase (RLS par rôle). Repli sur les données de démo
-  // si l'utilisateur n'y a pas accès (RLS → []) ou en cas d'erreur réseau.
+  // Données réelles via Supabase (RLS par rôle).
   const { data, isSuccess } = useQuery({
     queryKey: ["clients"],
     queryFn: fetchClients,
   });
-  const live = isSuccess && data.length > 0;
-  const clients: Client[] = live ? data : CLIENTS;
+  const live = isSuccess;
+  const clients: Client[] = data ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected =
     clients.find((c) => c.id === selectedId) ?? clients[0];
   const activeCount = clients.filter((c) => c.status === "actif").length;
 
-  if (!selected) return null;
+  if (!selected) {
+    return (
+      <ScreenContainer>
+        <div className="mb-3.5 flex items-center justify-between">
+          <div className="text-muted text-[11px] font-bold tracking-[0.7px] uppercase">
+            Portefeuille clients
+          </div>
+          <NewClientDialog />
+        </div>
+        <EmptyState title="Aucun client pour le moment" />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>

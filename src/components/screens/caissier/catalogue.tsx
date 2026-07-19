@@ -13,7 +13,6 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  getCatalogue,
   stockStatus,
   CATEGORY_TONE,
   STOCK_STATUS_META,
@@ -33,9 +32,9 @@ const FILTERS = [
 type Filter = (typeof FILTERS)[number]["value"];
 
 export function CatalogueScreen() {
-  // Catalogue réel via Supabase (RLS) ; repli démo si accès refusé.
-  const { data, isSuccess } = useQuery({ queryKey: ["catalogue"], queryFn: fetchCatalogue });
-  const items = isSuccess && data.length > 0 ? data : getCatalogue();
+  // Catalogue réel via Supabase (RLS).
+  const { data } = useQuery({ queryKey: ["catalogue"], queryFn: fetchCatalogue });
+  const items = data ?? [];
   const stats = useMemo(() => computeCatalogueStats(items), [items]);
   const [filter, setFilter] = useState<Filter>("tous");
 

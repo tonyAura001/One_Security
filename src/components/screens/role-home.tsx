@@ -4,23 +4,22 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { ScreenContainer } from "./screen-container";
 import { Card } from "@/components/ui/card";
-import { ActivityFeed } from "@/components/ui/activity-feed";
 import { useSession } from "@/lib/store/session";
 import { usePermissions } from "@/lib/store/access";
 import { PERMISSION_LABELS, type Permission } from "@/config/permissions";
-import { getRecentActivity } from "@/lib/api/activity";
+import { FUNCTIONAL_SCREENS } from "@/lib/rbac";
 import { ICONS } from "@/lib/icons";
-import { toneText, type Tone } from "@/lib/colors";
 
 /**
  * Generic per-role landing dashboard ("home"): greeting, KPI row and quick
  * access cards, all derived from the role's RBAC config.
  */
 export function RoleHome() {
-  const { config, role } = useSession();
+  const { config } = useSession();
   const greeting = `Bonjour, ${config.name.replace(/^M\. /, "")}`;
-  const kpis = config.kpis ?? [];
-  const links = config.links ?? [];
+  const links = (config.links ?? []).filter((l) =>
+    FUNCTIONAL_SCREENS.has(l.key),
+  );
   const permissions = usePermissions();
 
   return (
@@ -32,21 +31,6 @@ export function RoleHome() {
         <div className="text-muted mt-[3px] text-[12.5px] font-semibold">
           {config.fonction} · PilotePME — Dakar Sécurité
         </div>
-      </div>
-
-      <div className="mb-5 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <Card key={k.label} className="p-4">
-            <div className="text-muted text-[11px] font-semibold">
-              {k.label}
-            </div>
-            <div
-              className={`mt-1.5 text-[21px] font-extrabold tracking-[-0.5px] whitespace-nowrap ${toneText[k.color as Tone]}`}
-            >
-              {k.value}
-            </div>
-          </Card>
-        ))}
       </div>
 
       <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.6px]">
@@ -97,11 +81,6 @@ export function RoleHome() {
             )}
           </div>
         </Card>
-      </div>
-
-      {/* ── Activité récente (flux RBAC) ── */}
-      <div className="mt-5">
-        <ActivityFeed items={getRecentActivity(role)} />
       </div>
     </ScreenContainer>
   );

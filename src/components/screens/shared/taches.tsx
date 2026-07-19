@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { formatDateFR } from "@/lib/format";
-import { TASKS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchTaches, toggleTacheDone } from "@/lib/supabase/data/taches";
 import { toast } from "@/lib/toast";
 import type { Task } from "@/lib/api/types";
@@ -80,8 +80,8 @@ function initials(name: string): string {
 export function SharedTaches() {
   // Tâches réelles via Supabase (RLS) ; repli démo si accès refusé.
   const { data, isSuccess } = useQuery({ queryKey: ["taches"], queryFn: fetchTaches });
-  const tasks = isSuccess && data.length > 0 ? data : TASKS;
-  const live = isSuccess && data.length > 0;
+  const tasks = useMemo(() => data ?? [], [data]);
+  const live = isSuccess;
 
   const [done, setDone] = useState<Record<string, boolean>>({});
   useEffect(() => {
@@ -114,6 +114,9 @@ export function SharedTaches() {
         </div>
 
         <div className="flex flex-col">
+          {tasks.length === 0 && (
+            <EmptyState title="Aucune donnée pour le moment" />
+          )}
           {tasks.map((task, i) => {
             const isDone = done[task.id];
             const meta = PRIORITY_META[task.priority];

@@ -690,26 +690,86 @@ export const ALL_SCREENS: ScreenKey[] = [
   "home",
 ];
 
-/** Utilitaires accessibles à tous les rôles (raccourcis de pied de sidebar). */
-const UNIVERSAL: ScreenKey[] = ["parametres", "notifications"];
+/** Utilitaires accessibles à tous les rôles (raccourci de pied de sidebar). */
+const UNIVERSAL: ScreenKey[] = ["parametres"];
 
 /**
  * Modules COMMUNS (Espace de travail + Ressources) — ajoutés en bas de nav
  * pour TOUS les rôles.
  */
 const COMMON_MENU: MenuItem[] = [
-  { key: "mestaches", label: "Tâches", icon: "check" },
-  { key: "reunions", label: "Réunions", icon: "calendar" },
-  { key: "alertes", label: "Alertes", icon: "alert" },
-  { key: "bibliotheque", label: "Bibliothèque", icon: "book" },
-  { key: "notes", label: "Notes", icon: "note" },
+  { key: "taches", label: "Tâches", icon: "check" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
 ];
 
-/** Nav complète d'un rôle = ses modules métier + les modules communs. */
+/**
+ * Écrans réellement CÂBLÉS sur les données Supabase (source de vérité).
+ * Seuls ces écrans apparaissent dans la navigation (et sont accessibles par
+ * URL, cf. `canAccess`). Les autres modules — encore en démo/placeholder —
+ * sont masqués tant qu'ils ne sont pas branchés sur des données réelles.
+ */
+export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
+  "dashboard",
+  "home",
+  // CRM
+  "crm",
+  "prospects",
+  "fournisseurs",
+  // Finance
+  "finance",
+  "tresorerie",
+  "relances",
+  "exportpaie",
+  // Opérations
+  "agents",
+  "planning",
+  "pointage",
+  "presences",
+  "incidents",
+  // RH / Recrutement
+  "recrutement",
+  "entretiens",
+  // Boutique / caisse
+  "catalogue",
+  "stock",
+  "recus",
+  // Communication
+  "calendrier",
+  // Maintenance
+  "tickets",
+  "interventions",
+  // Communs
+  "taches",
+  "messagerie",
+  // Administration / système
+  "membres",
+  "parametres",
+]);
+
+/**
+ * Élague un arbre de menu : ne garde que les feuilles dont la clé est
+ * fonctionnelle, et supprime récursivement les groupes devenus vides.
+ */
+function pruneMenu(items: MenuItem[]): MenuItem[] {
+  const out: MenuItem[] = [];
+  for (const item of items) {
+    if (item.children) {
+      const kids = pruneMenu(item.children);
+      if (kids.length > 0) out.push({ ...item, children: kids });
+    } else if (item.key && FUNCTIONAL_SCREENS.has(item.key)) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+/**
+ * Nav complète d'un rôle = ses modules métier + les modules communs,
+ * élaguée aux seuls écrans fonctionnels.
+ */
 export function roleMenu(role: RoleId): MenuItem[] {
-  return [...ROLES[role].menu, ...COMMON_MENU];
+  return pruneMenu([...ROLES[role].menu, ...COMMON_MENU]);
 }
 
 function collectKeys(items: MenuItem[], acc: Set<ScreenKey>): void {

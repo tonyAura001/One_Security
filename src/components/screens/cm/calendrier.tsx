@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { PillVariant } from "@/components/ui/status-pill";
-import { PUBLICATIONS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchPublications } from "@/lib/supabase/data/publications";
 import type { Publication, PublicationStatus } from "@/lib/api/types";
 import { formatDateFR } from "@/lib/format";
@@ -41,8 +41,8 @@ const statusMeta: Record<
 };
 
 export function CmCalendrier() {
-  const { data, isSuccess } = useQuery({ queryKey: ["publications"], queryFn: fetchPublications });
-  const publications = isSuccess && data.length > 0 ? data : PUBLICATIONS;
+  const { data } = useQuery({ queryKey: ["publications"], queryFn: fetchPublications });
+  const publications = data ?? [];
   const orderedPublications = [...publications].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
@@ -59,6 +59,10 @@ export function CmCalendrier() {
           Programmer
         </Button>
       </div>
+
+      {orderedPublications.length === 0 && (
+        <EmptyState title="Aucune donnée pour le moment" />
+      )}
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {orderedPublications.map((p) => {

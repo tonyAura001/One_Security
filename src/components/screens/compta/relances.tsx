@@ -8,7 +8,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatNumberFR, formatFCFA } from "@/lib/format";
-import { RELANCES } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchRelances } from "@/lib/supabase/data/relances";
 import type { Relance } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
@@ -42,11 +42,11 @@ interface StatCard {
 }
 
 export function ComptaRelances() {
-  const { data, isSuccess } = useQuery({
+  const { data } = useQuery({
     queryKey: ["relances"],
     queryFn: fetchRelances,
   });
-  const relances = isSuccess && data.length > 0 ? data : RELANCES;
+  const relances = data ?? [];
 
   const totalLate = relances.reduce((sum, r) => sum + r.amount, 0);
   const noticeCount = relances.filter((r) => r.stage === "J+45").length;
@@ -183,6 +183,10 @@ export function ComptaRelances() {
             })}
           </div>
         </div>
+
+        {rows.length === 0 && (
+          <EmptyState title="Aucune donnée pour le moment" />
+        )}
       </Card>
     </ScreenContainer>
   );

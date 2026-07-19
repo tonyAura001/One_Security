@@ -8,9 +8,9 @@ import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
-import { INTERVIEWS } from "@/lib/api/data";
 import { fetchAgenda } from "@/lib/supabase/data/recrutement";
 import type { Interview } from "@/lib/api/types";
 
@@ -56,11 +56,16 @@ function ScoreDots({ score }: { score: number }) {
 
 export function RecruteurEntretiens() {
   // Agenda réel via Supabase (RLS : le recruteur ne voit que ses entretiens).
-  const { data, isSuccess } = useQuery({ queryKey: ["agenda"], queryFn: fetchAgenda });
-  const interviews = isSuccess && data.length > 0 ? data : INTERVIEWS;
+  const { data } = useQuery({ queryKey: ["agenda"], queryFn: fetchAgenda });
+  const interviews = data ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = interviews.find((i) => i.id === selectedId) ?? interviews[0];
-  if (!selected) return null;
+  if (!selected)
+    return (
+      <ScreenContainer>
+        <EmptyState title="Aucune donnée pour le moment" />
+      </ScreenContainer>
+    );
 
   return (
     <ScreenContainer>

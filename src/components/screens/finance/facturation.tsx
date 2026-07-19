@@ -13,7 +13,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
-import { CONTRACTS, INVOICES, QUOTES } from "@/lib/api/data";
 import { fetchInvoices } from "@/lib/supabase/data/invoices";
 import { fetchContracts } from "@/lib/supabase/data/contracts";
 import { fetchQuotes } from "@/lib/supabase/data/quotes";
@@ -198,29 +197,23 @@ const TAB_LABELS: Record<FinanceTab, { cta: string; placeholder: string }> = {
 export function FinanceFacturation() {
   const [tab, setTab] = useState<FinanceTab>("factures");
 
-  // Factures réelles via Supabase (RLS finance) ; repli démo si accès refusé.
-  const { data, isSuccess } = useQuery({
+  // Factures réelles via Supabase (RLS finance).
+  const { data } = useQuery({
     queryKey: ["invoices"],
     queryFn: fetchInvoices,
   });
-  const invoices = isSuccess && data.length > 0 ? data : INVOICES;
+  const invoices = data ?? [];
 
-  // Contrats réels via Supabase (RLS) ; repli démo si accès refusé.
+  // Contrats réels via Supabase (RLS).
   const contractsQuery = useQuery({
     queryKey: ["contracts"],
     queryFn: fetchContracts,
   });
-  const contracts =
-    contractsQuery.isSuccess && contractsQuery.data.length > 0
-      ? contractsQuery.data
-      : CONTRACTS;
+  const contracts = contractsQuery.data ?? [];
 
-  // Devis réels via Supabase (RLS) ; repli démo si accès refusé.
+  // Devis réels via Supabase (RLS).
   const quotesQuery = useQuery({ queryKey: ["quotes"], queryFn: fetchQuotes });
-  const quotes =
-    quotesQuery.isSuccess && quotesQuery.data.length > 0
-      ? quotesQuery.data
-      : QUOTES;
+  const quotes = quotesQuery.data ?? [];
 
   const paid = invoices.filter((i) => i.status === "payee");
   const sent = invoices.filter((i) => i.status === "envoyee");

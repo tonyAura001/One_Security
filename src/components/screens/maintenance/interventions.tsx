@@ -9,7 +9,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
-import { INTERVENTIONS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchInterventions } from "@/lib/supabase/data/maintenance";
 import type { Intervention } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -42,11 +42,20 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export function MaintenanceInterventions() {
-  const { data, isSuccess } = useQuery({ queryKey: ["interventions"], queryFn: fetchInterventions });
-  const interventions = isSuccess && data.length > 0 ? data : INTERVENTIONS;
+  const { data } = useQuery({ queryKey: ["interventions"], queryFn: fetchInterventions });
+  const interventions = data ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected =
     interventions.find((i) => i.id === selectedId) ?? interventions[0];
+
+  if (!selected) {
+    return (
+      <ScreenContainer>
+        <EmptyState title="Aucune donnée pour le moment" />
+      </ScreenContainer>
+    );
+  }
+
   const selectedMeta = STATUS_META[selected.status];
 
   return (

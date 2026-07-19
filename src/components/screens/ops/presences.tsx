@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
-import { ATTENDANCE } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchAttendance } from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
@@ -27,13 +27,16 @@ interface StatCard {
 }
 
 export function OpsPresences() {
-  // Présences réelles via Supabase (RLS ops) ; repli démo si accès refusé.
+  // Présences réelles via Supabase (RLS ops).
   const attQuery = useQuery({ queryKey: ["attendance"], queryFn: fetchAttendance });
-  const attendance = attQuery.isSuccess && attQuery.data.length > 0 ? attQuery.data : ATTENDANCE;
+  const attendance = attQuery.data ?? [];
   const present = attendance.filter((a) => a.status === "present").length;
   const retard = attendance.filter((a) => a.status === "retard").length;
   const absent = attendance.filter((a) => a.status === "absent").length;
-  const rate = ((present + retard) / attendance.length) * 100;
+  const rate =
+    attendance.length > 0
+      ? ((present + retard) / attendance.length) * 100
+      : 0;
 
   const stats: StatCard[] = [
     {
@@ -115,6 +118,10 @@ export function OpsPresences() {
             </div>
           );
         })}
+
+        {attendance.length === 0 && (
+          <EmptyState title="Aucune donnée pour le moment" />
+        )}
       </Card>
     </ScreenContainer>
   );

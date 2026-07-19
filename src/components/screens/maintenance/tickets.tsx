@@ -8,7 +8,7 @@ import { KanbanBoard, type KanbanColumn } from "@/components/ui/kanban-board";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { TICKETS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchTickets, updateTicketStage } from "@/lib/supabase/data/maintenance";
 import type { Ticket, TicketCriticality, TicketStage } from "@/lib/api/types";
 
@@ -30,12 +30,12 @@ const CRITICALITY_META: Record<
 };
 
 export function MaintenanceTickets() {
-  const [tickets, setTickets] = useState<Ticket[]>(TICKETS);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const { data, isSuccess } = useQuery({ queryKey: ["tickets"], queryFn: fetchTickets });
   useEffect(() => {
-    if (isSuccess && data.length > 0) setTickets(data);
-  }, [isSuccess, data]);
-  const live = isSuccess && data.length > 0;
+    if (data) setTickets(data);
+  }, [data]);
+  const live = isSuccess;
 
   function handleMove(id: string, toColumn: string) {
     const stage = toColumn as TicketStage;
@@ -64,32 +64,36 @@ export function MaintenanceTickets() {
         </Button>
       </div>
 
-      <KanbanBoard<Ticket>
-        columns={COLUMNS}
-        items={tickets}
-        getId={(t) => t.id}
-        getColumn={(t) => t.stage}
-        onMove={handleMove}
-        renderCard={(t) => {
-          const meta = CRITICALITY_META[t.criticality];
-          return (
-            <div className="border-border bg-surface shadow-card rounded-xl border p-3">
-              <StatusPill variant={meta.variant} uppercase>
-                {meta.label}
-              </StatusPill>
-              <div className="text-foreground mt-2 text-[12px] font-bold">
-                {t.title}
+      {tickets.length === 0 ? (
+        <EmptyState title="Aucune donnée pour le moment" />
+      ) : (
+        <KanbanBoard<Ticket>
+          columns={COLUMNS}
+          items={tickets}
+          getId={(t) => t.id}
+          getColumn={(t) => t.stage}
+          onMove={handleMove}
+          renderCard={(t) => {
+            const meta = CRITICALITY_META[t.criticality];
+            return (
+              <div className="border-border bg-surface shadow-card rounded-xl border p-3">
+                <StatusPill variant={meta.variant} uppercase>
+                  {meta.label}
+                </StatusPill>
+                <div className="text-foreground mt-2 text-[12px] font-bold">
+                  {t.title}
+                </div>
+                <div className="text-muted mt-1 text-[10.5px] font-semibold">
+                  {t.ref} · {t.site}
+                </div>
+                <div className="text-muted mt-0.5 text-[10.5px] font-semibold">
+                  {t.equipment}
+                </div>
               </div>
-              <div className="text-muted mt-1 text-[10.5px] font-semibold">
-                {t.ref} · {t.site}
-              </div>
-              <div className="text-muted mt-0.5 text-[10.5px] font-semibold">
-                {t.equipment}
-              </div>
-            </div>
-          );
-        }}
-      />
+            );
+          }}
+        />
+      )}
     </ScreenContainer>
   );
 }

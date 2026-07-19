@@ -10,7 +10,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
-import { ATTENDANCE } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchAttendance } from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -35,9 +35,9 @@ function initials(name: string): string {
 }
 
 export function OpsPointage() {
-  // Présences réelles via Supabase (RLS ops) ; repli démo si accès refusé.
+  // Présences réelles via Supabase (RLS ops).
   const attQuery = useQuery({ queryKey: ["attendance"], queryFn: fetchAttendance });
-  const attendance = attQuery.isSuccess && attQuery.data.length > 0 ? attQuery.data : ATTENDANCE;
+  const attendance = attQuery.data ?? [];
   const [site, setSite] = useState<string>(ALL);
 
   const sites = useMemo(() => [...new Set(attendance.map((a) => a.site))], []);
@@ -150,6 +150,10 @@ export function OpsPointage() {
           );
         })}
       </div>
+
+      {grouped.length === 0 && (
+        <EmptyState title="Aucune donnée pour le moment" />
+      )}
     </ScreenContainer>
   );
 }

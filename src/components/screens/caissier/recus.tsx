@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
-import { RECEIPTS } from "@/lib/api/data";
+import { EmptyState } from "@/components/ui/empty-state";
 import { fetchReceipts } from "@/lib/supabase/data/caisse";
 import type { Receipt } from "@/lib/api/types";
 import { formatFCFA, formatNumberFR } from "@/lib/format";
@@ -22,8 +22,8 @@ const METHOD_VARIANT: Record<Receipt["method"], PillVariant> = {
 };
 
 export function CaissierRecus() {
-  const { data, isSuccess } = useQuery({ queryKey: ["receipts"], queryFn: fetchReceipts });
-  const receipts = isSuccess && data.length > 0 ? data : RECEIPTS;
+  const { data } = useQuery({ queryKey: ["receipts"], queryFn: fetchReceipts });
+  const receipts = data ?? [];
   const [selectedId, setSelectedId] = useState<string>("");
   const selected =
     receipts.find((r) => r.id === selectedId) ?? receipts[0] ?? null;
@@ -50,6 +50,10 @@ export function CaissierRecus() {
             <div className="w-[100px] text-right">Montant</div>
             <div className="w-[64px] text-right">Heure</div>
           </div>
+
+          {receipts.length === 0 && (
+            <EmptyState title="Aucune donnée pour le moment" />
+          )}
 
           {receipts.map((r) => {
             const active = r.id === selected?.id;

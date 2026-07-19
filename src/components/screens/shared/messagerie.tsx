@@ -5,11 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Button } from "@/aurantir-front-kit";
-import {
-  CONVERSATIONS,
-  type ChatLine,
-  type Conversation,
-} from "@/lib/api/messagerie";
+import { type ChatLine, type Conversation } from "@/lib/api/messagerie";
 import { cn } from "@/lib/utils";
 import { fetchConversations, sendMessage } from "@/lib/supabase/data/messagerie";
 import { toast } from "@/lib/toast";
@@ -17,12 +13,12 @@ import { toast } from "@/lib/toast";
 export function MessagerieScreen() {
   const qc = useQueryClient();
   const { data, isSuccess } = useQuery({ queryKey: ["conversations"], queryFn: fetchConversations });
-  const live = isSuccess && data.length > 0;
+  const live = isSuccess;
 
-  const [convos, setConvos] = useState<Conversation[]>(CONVERSATIONS);
+  const [convos, setConvos] = useState<Conversation[]>([]);
   useEffect(() => {
-    if (live) setConvos(data);
-  }, [live, data]);
+    if (data) setConvos(data);
+  }, [data]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState("");
