@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Building2, MapPin, Phone, Plus, User } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatFCFACompact } from "@/lib/format";
 import { CLIENTS } from "@/lib/api/data";
+import { fetchClients } from "@/lib/supabase/data/clients";
 import type { Client, ClientStatus } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText } from "@/lib/colors";
@@ -42,15 +44,28 @@ function initials(name: string): string {
 }
 
 export function CrmClients() {
-  const [selectedId, setSelectedId] = useState<string>(CLIENTS[0].id);
-  const selected = CLIENTS.find((c) => c.id === selectedId) ?? CLIENTS[0];
-  const activeCount = CLIENTS.filter((c) => c.status === "actif").length;
+  // Données réelles via Supabase (RLS par rôle). Repli sur les données de démo
+  // si l'utilisateur n'y a pas accès (RLS → []) ou en cas d'erreur réseau.
+  const { data, isSuccess } = useQuery({
+    queryKey: ["clients"],
+    queryFn: fetchClients,
+  });
+  const live = isSuccess && data.length > 0;
+  const clients: Client[] = live ? data : CLIENTS;
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected =
+    clients.find((c) => c.id === selectedId) ?? clients[0];
+  const activeCount = clients.filter((c) => c.status === "actif").length;
+
+  if (!selected) return null;
 
   return (
     <ScreenContainer>
       <div className="mb-3.5 flex items-center justify-between">
         <div className="text-muted text-[11px] font-bold tracking-[0.7px] uppercase">
           Portefeuille clients · {activeCount} comptes actifs
+          {live ? " · Supabase" : " · démo"}
         </div>
         <Button
           size="sm"
@@ -66,8 +81,8 @@ export function CrmClients() {
       <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[1.5fr_1fr]">
         {/* Client list */}
         <Card className="flex flex-col gap-2 p-3">
-          {CLIENTS.map((client) => {
-            const active = client.id === selectedId;
+          {clients.map((client) => {
+            const active = client.id === selected?.id;
             const meta = STATUS_META[client.status];
             const tone = healthTone(client.health);
             return (
