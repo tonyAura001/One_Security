@@ -15,6 +15,8 @@ vers une architecture **100% Supabase** :
 | 1 | `…_enable_rls_all_tables.sql` | 🔒 Active RLS partout (deny-by-default) + helper `current_app_role()` |
 | 2 | `…_clients_read_policy.sql` | Pilote **clients** : `current_app_role()` normalisé MAJUSCULE + policy lecture (DG/RP/RF/COMPTABLE/MANAGER) |
 | 3 | `…_enrich_clients.sql` | Enrichissement clients : colonnes secteur/statut/scoreSante + policies lecture Contact/Site/Contrat |
+| 4 | `…_invoices_read_policy.sql` | Module factures : policy lecture (DG/RF/COMPTABLE/RP/MANAGER) |
+| 5 | `…_clients_write.sql` | Clients en écriture : défauts DB id/updatedAt + policies insert/update (DG/RP) |
 
 > Les policies fines sont ajoutées **module par module** (à mesure que le front bascule
 > sur `supabase-js`). Tant qu'une table n'a pas de policy, seul le superuser (API NestJS
@@ -41,6 +43,8 @@ create policy "factures_read_finance"
 - [x] **Pilote données `clients`** : policy RLS de lecture par rôle — prouvé (dg/rf voient, agent/surveillant/anon bloqués).
 - [x] Écran CRM câblé sur `supabase-js` (mapper UI↔DB) + **enrichi** (secteur, contact décideur, nb sites, CA mensuel via Contrat) — module `clients` 100% réel.
 - [ ] Client `supabase-js` data côté front pour les autres modules.
-- [ ] Policies + bascule module par module (lecture puis écriture).
+- [x] Module **factures** en lecture (RLS + join client).
+- [x] Module **clients en écriture** (formulaire Nouveau client, policies insert/update DG/RP).
+- [ ] Poursuivre module par module (lecture puis écriture).
 - [ ] Edge Functions pour la logique non exprimable en table+RLS.
 - [ ] Retrait de `apps/api` une fois tous les modules portés.

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, MapPin, Phone, Plus, User } from "lucide-react";
+import { Building2, MapPin, Phone, User } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
+import { NewClientDialog } from "@/components/screens/crm/new-client-dialog";
 import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
@@ -67,15 +68,7 @@ export function CrmClients() {
           Portefeuille clients · {activeCount} comptes actifs
           {live ? " · Supabase" : " · démo"}
         </div>
-        <Button
-          size="sm"
-          onClick={() =>
-            toast.success("« Nouveau client » — formulaire ouvert")
-          }
-        >
-          <Plus className="size-3.5" strokeWidth={2.4} />
-          Nouveau client
-        </Button>
+        <NewClientDialog />
       </div>
 
       <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[1.5fr_1fr]">

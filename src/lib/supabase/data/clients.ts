@@ -75,6 +75,28 @@ function mapDbClient(r: DbClient): Client {
   };
 }
 
+/** Champs saisis à la création d'un client. */
+export interface NewClientInput {
+  raisonSociale: string;
+  formeJuridique: string;
+  secteur: string;
+  adresseFacturation: string;
+  statut: ClientStatus;
+}
+
+/** Crée un client (RLS `clients_insert_commerce` : DG/RP uniquement). */
+export async function createClientRow(input: NewClientInput): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("Client").insert({
+    raisonSociale: input.raisonSociale.trim(),
+    formeJuridique: input.formeJuridique,
+    adresseFacturation: input.adresseFacturation.trim(),
+    secteur: input.secteur.trim() || null,
+    statut: input.statut,
+  });
+  if (error) throw error;
+}
+
 /** Liste des clients visibles par l'utilisateur courant (selon RLS). */
 export async function fetchClients(): Promise<Client[]> {
   const supabase = createClient();
