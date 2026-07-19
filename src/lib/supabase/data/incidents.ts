@@ -40,6 +40,28 @@ function mapIncident(r: DbIncident): Incident {
   };
 }
 
+export interface NewIncidentInput {
+  type: string;
+  description: string;
+  criticite: IncidentCriticite;
+}
+
+/** Crée un incident / entrée de main courante (RLS incident_insert). */
+export async function createIncident(i: NewIncidentInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("IncidentSecurite")
+    .insert({
+      type: i.type.trim(),
+      description: i.description.trim(),
+      criticite: i.criticite,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 /** Incidents visibles par l'utilisateur courant (selon RLS), récents d'abord. */
 export async function fetchIncidents(): Promise<Incident[]> {
   const supabase = createClient();

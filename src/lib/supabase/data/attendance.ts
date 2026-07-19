@@ -31,6 +31,25 @@ function hhmm(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * Enregistre un pointage (arrivée/départ) pour un agent terrain.
+ * RLS pointage_insert (DG/RP/MANAGER/CONTROLEUR/SURVEILLANT/AGENT).
+ * `dateHeure` prend le défaut DB (now()).
+ */
+export async function recordPointage(
+  agentSecuriteId: string,
+  type: "ARRIVEE" | "DEPART",
+): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Pointage")
+    .insert({ agentId: agentSecuriteId, type } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: pointage refusé (accès écriture).");
+}
+
 /** Présences du jour, une ligne par agent terrain (selon RLS). */
 export async function fetchAttendance(): Promise<Attendance[]> {
   const supabase = createClient();

@@ -51,6 +51,36 @@ export async function fetchAgents(): Promise<Agent[]> {
   return (data as unknown as DbAgent[]).map(mapAgent);
 }
 
+export interface NewAgentInput {
+  prenom: string;
+  nom?: string;
+  matricule?: string;
+  telephone?: string;
+  poste?: string; // affectation (site/lieu)
+  salaire?: number | null;
+  statut: string; // 'actif' | 'inactif' | 'suspendu'
+}
+
+/** Crée un agent de sécurité (RLS agents_securite_insert : DG/RP/RH/MANAGER). */
+export async function createAgent(i: NewAgentInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("AgentSecurite")
+    .insert({
+      prenom: i.prenom.trim(),
+      nom: i.nom?.trim() || null,
+      matricule: i.matricule?.trim() || null,
+      telephone: i.telephone?.trim() || null,
+      poste: i.poste?.trim() || null,
+      salaire: i.salaire ?? null,
+      statut: i.statut,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 /** Fiche brute d'un agent (pour l'édition par les responsables). */
 export interface AgentRecord {
   id: string;

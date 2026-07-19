@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useMemo, useState } from "react";
 import { Shield } from "lucide-react";
@@ -10,7 +10,10 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { EmptyState } from "@/components/ui/empty-state";
-import { fetchAttendance } from "@/lib/supabase/data/attendance";
+import {
+  fetchAttendance,
+  recordPointage,
+} from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +42,26 @@ export function OpsPointage() {
   const attQuery = useQuery({ queryKey: ["attendance"], queryFn: fetchAttendance });
   const attendance = attQuery.data ?? [];
   const [site, setSite] = useState<string>(ALL);
+
+  const qc = useQueryClient();
+  const pointerMut = useMutation({
+    mutationFn: (v: { id: string; type: "ARRIVEE" | "DEPART" }) =>
+      recordPointage(v.id, v.type),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+      toast.success(
+        v.type === "ARRIVEE" ? "Arrivée enregistrée" : "Départ enregistré",
+      );
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level security|policy|permission/i.test(msg)
+          ? "Accès refusé pour enregistrer un pointage."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
 
   const sites = useMemo(
     () => [...new Set(attendance.map((a) => a.site))],
@@ -140,11 +163,15 @@ export function OpsPointage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={pointerMut.isPending || !!a.checkOut}
                       onClick={() =>
-                        toast.success(`Pointage enregistré — ${a.agent}`)
+                        pointerMut.mutate({
+                          id: a.id,
+                          type: a.checkIn ? "DEPART" : "ARRIVEE",
+                        })
                       }
                     >
-                      Pointer
+                      {a.checkOut ? "Pointé" : a.checkIn ? "Départ" : "Pointer"}
                     </Button>
                   </div>
                 );

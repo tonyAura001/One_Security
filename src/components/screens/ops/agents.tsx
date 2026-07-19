@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   IdCard,
   Phone,
-  Plus,
   ShieldAlert,
   UserCheck,
   Users,
@@ -36,10 +35,10 @@ import {
 } from "@/lib/api/agents";
 import { fetchAgents, computeAgentStats } from "@/lib/supabase/data/agents";
 import { AgentEditDialog } from "./agent-edit-dialog";
+import { NewAgentDialog } from "./new-agent-dialog";
 import { toneText } from "@/lib/colors";
 import { formatDateFR } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/toast";
 
 const STATUS_OPTIONS = [
   { value: "tous", label: "Tous" },
@@ -166,12 +165,7 @@ export function AgentsScreen() {
             Annuaire opérationnel · cartes pro Décret 2018-671
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => toast.info("Nouvel agent", "Fonction de démonstration")}
-        >
-          <Plus className="size-4" /> Nouvel agent
-        </Button>
+        <NewAgentDialog />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
@@ -339,21 +333,17 @@ function AgentDetail({ agent }: { agent: Agent }) {
         </section>
 
         <div className="flex gap-2 pt-1">
-          <Button
-            size="sm"
-            className="flex-1"
-            onClick={() => toast.success(`Appel de ${agent.name} lancé`)}
-          >
-            Contacter
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1"
-            onClick={() => toast.info(`Fiche de ${agent.name}`, "Dossier complet (démo)")}
-          >
-            Dossier complet
-          </Button>
+          {agent.phone && agent.phone !== "—" ? (
+            <Button size="sm" className="flex-1" asChild>
+              <a href={`tel:${agent.phone.replace(/\s/g, "")}`}>
+                Appeler {agent.name}
+              </a>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="flex-1" disabled>
+              Aucun numéro renseigné
+            </Button>
+          )}
         </div>
       </div>
     </>

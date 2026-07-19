@@ -15,6 +15,7 @@ import {
   type IncidentCriticite,
   type IncidentStatut,
 } from "@/lib/supabase/data/incidents";
+import { NewIncidentDialog } from "./new-incident-dialog";
 
 const TYPE_LABEL: Record<string, string> = {
   AGRESSION: "Agression",
@@ -113,6 +114,13 @@ export function IncidentsScreen() {
 
   return (
     <ScreenContainer>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-muted text-[11px] font-bold tracking-[0.7px] uppercase">
+          Main courante · 30 derniers jours
+        </div>
+        <NewIncidentDialog />
+      </div>
+
       <div className="mb-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           icon={ShieldAlert}
