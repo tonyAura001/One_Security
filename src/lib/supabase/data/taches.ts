@@ -33,6 +33,35 @@ export async function fetchTaches(): Promise<Task[]> {
   if (error) throw error;
   return (data as unknown as DbTache[]).map(mapTask);
 }
+export interface NewTacheInput {
+  titre: string;
+  description?: string;
+  priorite: string; // haute | moyenne | basse
+  echeance?: string | null;
+  assigneAId?: string | null;
+}
+
+/** Crée une tâche (RLS tache_write). Le créateur = utilisateur courant. */
+export async function createTache(i: NewTacheInput): Promise<void> {
+  const supabase = createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const creeParId = auth.user?.id ?? null;
+  const { data, error } = await supabase
+    .from("Tache")
+    .insert({
+      titre: i.titre.trim(),
+      description: i.description?.trim() || null,
+      priorite: i.priorite,
+      echeance: i.echeance || null,
+      assigneAId: i.assigneAId || null,
+      creeParId,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export async function toggleTacheDone(id: string, done: boolean): Promise<void> {
   const supabase = createClient();
   const { data, error } = await supabase.from("Tache").update({ terminee: done }).eq("id", id).select("id");

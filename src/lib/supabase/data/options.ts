@@ -49,6 +49,17 @@ export async function fetchProspectOptions(): Promise<Opt[]> {
   return (data ?? []).map((r) => ({ id: r.id, label: r.raisonSociale }));
 }
 
+/** Utilisateurs assignables (selon RLS : DG/RH/ops voient tout, sinon soi). */
+export async function fetchUserOptions(): Promise<Opt[]> {
+  const s = createClient();
+  const { data, error } = await s
+    .from("User")
+    .select("id,prenom,nom")
+    .order("nom");
+  if (error) throw error;
+  return (data ?? []).map((u) => ({ id: u.id, label: `${u.prenom} ${u.nom}` }));
+}
+
 /** Factures (pour rattacher un encaissement). */
 export async function fetchInvoiceOptions(): Promise<InvoiceOpt[]> {
   const s = createClient();

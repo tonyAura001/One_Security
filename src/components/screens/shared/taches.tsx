@@ -9,6 +9,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { formatDateFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchTaches, toggleTacheDone } from "@/lib/supabase/data/taches";
+import { NewTacheDialog } from "./new-tache-dialog";
 import { toast } from "@/lib/toast";
 import type { Task } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
@@ -30,40 +31,6 @@ const AVATAR_TONES: Tone[] = [
   "violet",
   "warning",
   "danger",
-];
-
-interface Meeting {
-  day: string;
-  month: string;
-  title: string;
-  detail: string;
-}
-
-const MEETINGS: Meeting[] = [
-  {
-    day: "06",
-    month: "JUIL",
-    title: "Réunion direction hebdo",
-    detail: "Lundi · 09:00 · Salle A",
-  },
-  {
-    day: "07",
-    month: "JUIL",
-    title: "Point recouvrement",
-    detail: "Mardi · 11:00 · Visio",
-  },
-  {
-    day: "08",
-    month: "JUIL",
-    title: "Entretiens candidats (Khadija, Pape)",
-    detail: "Mercredi · 14:00 · Bureau RH",
-  },
-  {
-    day: "09",
-    month: "JUIL",
-    title: "Négociation contrat Eiffage",
-    detail: "Jeudi · 10:30 · Chez le client",
-  },
 ];
 
 function initials(name: string): string {
@@ -108,9 +75,12 @@ export function SharedTaches() {
           <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
             Tâches en cours
           </div>
-          <StatusPill variant="info" uppercase>
-            {remaining} à faire
-          </StatusPill>
+          <div className="flex items-center gap-2.5">
+            <StatusPill variant="info" uppercase>
+              {remaining} à faire
+            </StatusPill>
+            <NewTacheDialog />
+          </div>
         </div>
 
         <div className="flex flex-col">
@@ -181,38 +151,6 @@ export function SharedTaches() {
               </div>
             );
           })}
-        </div>
-      </Card>
-
-      {/* Meetings */}
-      <Card className="mt-[15px] p-[18px_20px]">
-        <div className="text-foreground mb-3.5 text-[15px] font-extrabold tracking-[-0.3px]">
-          Réunions à venir
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {MEETINGS.map((m) => (
-            <div
-              key={m.title}
-              className="border-border bg-surface2 flex items-center gap-3.5 rounded-xl border px-4 py-3"
-            >
-              <div className="bg-accent/14 flex size-[46px] flex-none flex-col items-center justify-center rounded-[11px]">
-                <span className="text-accent text-[15px] leading-none font-extrabold">
-                  {m.day}
-                </span>
-                <span className="text-accent text-[9px] font-bold">
-                  {m.month}
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-foreground text-[13px] font-bold">
-                  {m.title}
-                </div>
-                <div className="text-muted mt-0.5 text-[11px] font-semibold">
-                  {m.detail}
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </Card>
     </ScreenContainer>
