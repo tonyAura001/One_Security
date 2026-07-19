@@ -39,7 +39,7 @@ create policy "factures_read_finance"
 ## État de la migration (strangler)
 
 - [x] **Fondation** : RLS activé partout (faille PostgREST/anon fermée), helper rôle.
-- [ ] Types TS générés (`supabase gen types typescript`).
+- [x] Types TS générés (par introspection DB → `src/lib/supabase/database.types.ts`) + client browser typé `<Database>`.
 - [x] **Pilote données `clients`** : policy RLS de lecture par rôle — prouvé (dg/rf voient, agent/surveillant/anon bloqués).
 - [x] Écran CRM câblé sur `supabase-js` (mapper UI↔DB) + **enrichi** (secteur, contact décideur, nb sites, CA mensuel via Contrat) — module `clients` 100% réel.
 - [ ] Client `supabase-js` data côté front pour les autres modules.

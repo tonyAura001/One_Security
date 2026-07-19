@@ -7,7 +7,10 @@
  * MANAGER ; pour les autres, la requête renvoie `[]` (repli démo côté écran).
  */
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 import type { Client, ClientStatus } from "@/lib/api/types";
+
+type FormeJuridique = Database["public"]["Enums"]["FormeJuridique"];
 
 interface DbContact {
   prenom: string;
@@ -89,7 +92,7 @@ export async function createClientRow(input: NewClientInput): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("Client").insert({
     raisonSociale: input.raisonSociale.trim(),
-    formeJuridique: input.formeJuridique,
+    formeJuridique: input.formeJuridique as FormeJuridique,
     adresseFacturation: input.adresseFacturation.trim(),
     secteur: input.secteur.trim() || null,
     statut: input.statut,
