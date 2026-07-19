@@ -45,6 +45,7 @@ create policy "factures_read_finance"
 - [ ] Client `supabase-js` data côté front pour les autres modules.
 - [x] Module **factures** en lecture (RLS + join client).
 - [x] Module **contrats** en lecture (RLS + join client, statut dérivé de la date de fin).
+- [x] Module **fournisseurs** en lecture (RLS Fournisseur+Depense, encours dérivé des dépenses impayées).
 - [x] DG **« Voir en tant que »** tous les rôles (view-as, UI uniquement).
 - [x] Module **clients en écriture** (formulaire Nouveau client, policies insert/update DG/RP).
 - [ ] Poursuivre module par module (lecture puis écriture).

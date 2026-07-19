@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Boxes, Clock, FileWarning, Plus, Users } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
@@ -10,11 +11,14 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import {
   getSuppliers,
-  getSupplierStats,
   SUPPLIER_CATEGORY_META,
   SUPPLIER_STATUS_META,
   type Supplier,
 } from "@/lib/api/suppliers";
+import {
+  fetchSuppliers,
+  computeSupplierStats,
+} from "@/lib/supabase/data/suppliers";
 import { toneText } from "@/lib/colors";
 import { formatFCFA, formatFCFACompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -85,8 +89,13 @@ const columns: ColumnDef<Supplier>[] = [
 ];
 
 export function FournisseursScreen() {
-  const suppliers = useMemo(() => getSuppliers(), []);
-  const stats = useMemo(() => getSupplierStats(), []);
+  // Fournisseurs réels via Supabase (RLS finance) ; repli démo si accès refusé.
+  const { data, isSuccess } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: fetchSuppliers,
+  });
+  const suppliers = isSuccess && data.length > 0 ? data : getSuppliers();
+  const stats = useMemo(() => computeSupplierStats(suppliers), [suppliers]);
 
   return (
     <ScreenContainer>
