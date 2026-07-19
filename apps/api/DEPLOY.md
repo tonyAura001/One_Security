@@ -41,6 +41,31 @@ Sur le provider choisi (Railway / Render / Fly / Cloud Run…) :
 4. Domaine + certificat SSL (géré par le provider ou via un reverse proxy).
 5. Vérifier : `GET https://<api>/api/health` → 200, `GET /api/docs` → Swagger.
 
+### Railway (procédure retenue)
+
+Le dépôt fournit `railway.json` (builder Dockerfile + healthcheck `/api/health`).
+
+```bash
+# depuis apps/api
+railway login                     # interactif (navigateur)
+railway init                      # créer le projet, ou: railway link
+# Variables (ne PAS committer les valeurs) — via dashboard ou CLI :
+railway variables \
+  --set "DATABASE_URL=…pooler 6543…" \
+  --set "DIRECT_URL=…direct 5432…" \
+  --set "SUPABASE_URL=https://wypoifuwyylvbzuwmuct.supabase.co" \
+  --set "SUPABASE_ANON_KEY=…" \
+  --set "SUPABASE_SERVICE_ROLE_KEY=…" \
+  --set "SUPABASE_JWT_SECRET=…" \
+  --set "NODE_ENV=production" \
+  --set "CORS_ORIGINS=https://pilotepme-sandy.vercel.app"
+railway up                        # build Dockerfile + déploie (db:deploy au boot)
+railway domain                    # génère un domaine public
+```
+
+Railway injecte `PORT` automatiquement (l'app lit `process.env.PORT`). Le
+conteneur applique les migrations (`pnpm db:deploy`) au démarrage.
+
 ### Secrets CI (GitHub → Settings → Secrets)
 - GHCR : aucun secret requis (utilise `GITHUB_TOKEN`).
 - DockerHub (alternative) : `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` — remplacer

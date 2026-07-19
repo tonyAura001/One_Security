@@ -9,7 +9,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
-  app.enableCors();
+
+  // CORS restreint aux origines autorisées. En prod, définir CORS_ORIGINS
+  // (liste séparée par des virgules) ; sinon on autorise le front déployé
+  // et le dev local. `*` (ou aucune origine définie hors prod) = tout ouvert.
+  const corsEnv = process.env.CORS_ORIGINS?.trim();
+  const corsOrigin =
+    corsEnv === '*'
+      ? true
+      : corsEnv
+        ? corsEnv.split(',').map((o) => o.trim())
+        : [
+            'https://pilotepme-sandy.vercel.app',
+            'http://localhost:3000',
+            'http://localhost:3199',
+          ];
+  app.enableCors({ origin: corsOrigin, credentials: true });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
