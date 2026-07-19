@@ -181,6 +181,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Candidat": {
+        Row: {
+          "id": string;
+          "nom": string;
+          "prenom": string;
+          "email": string | null;
+          "telephone": string | null;
+          "adresse": string | null;
+          "dateNaissance": string | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "nom": string;
+          "prenom": string;
+          "email"?: string | null;
+          "telephone"?: string | null;
+          "adresse"?: string | null;
+          "dateNaissance"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "nom"?: string;
+          "prenom"?: string;
+          "email"?: string | null;
+          "telephone"?: string | null;
+          "adresse"?: string | null;
+          "dateNaissance"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
+      "Candidature": {
+        Row: {
+          "id": string;
+          "posteId": string;
+          "candidatId": string;
+          "statut": string;
+          "datePostulation": string;
+          "messageMotivation": string | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "posteId": string;
+          "candidatId": string;
+          "statut"?: string;
+          "datePostulation"?: string;
+          "messageMotivation"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "posteId"?: string;
+          "candidatId"?: string;
+          "statut"?: string;
+          "datePostulation"?: string;
+          "messageMotivation"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "Checkpoint": {
         Row: {
           "id": string;
@@ -565,6 +634,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Entretien": {
+        Row: {
+          "id": string;
+          "candidatureId": string;
+          "recruteurId": string;
+          "dateHeure": string;
+          "type": string;
+          "statut": string;
+          "compteRendu": string | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "candidatureId": string;
+          "recruteurId": string;
+          "dateHeure": string;
+          "type"?: string;
+          "statut"?: string;
+          "compteRendu"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "candidatureId"?: string;
+          "recruteurId"?: string;
+          "dateHeure"?: string;
+          "type"?: string;
+          "statut"?: string;
+          "compteRendu"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "Facture": {
         Row: {
           "id": string;
@@ -627,6 +732,7 @@ export type Database = {
           "uploadedById": string | null;
           "createdAt": string;
           "incidentId": string | null;
+          "candidatureId": string | null;
         };
         Insert: {
           "id": string;
@@ -638,6 +744,7 @@ export type Database = {
           "uploadedById"?: string | null;
           "createdAt"?: string;
           "incidentId"?: string | null;
+          "candidatureId"?: string | null;
         };
         Update: {
           "id"?: string;
@@ -649,6 +756,7 @@ export type Database = {
           "uploadedById"?: string | null;
           "createdAt"?: string;
           "incidentId"?: string | null;
+          "candidatureId"?: string | null;
         };
         Relationships: [];
       };
@@ -868,6 +976,45 @@ export type Database = {
           "longitude"?: number | null;
           "agentId"?: string;
           "siteId"?: string | null;
+        };
+        Relationships: [];
+      };
+      "Poste": {
+        Row: {
+          "id": string;
+          "titre": string;
+          "description": string | null;
+          "salaireMin": number | null;
+          "salaireMax": number | null;
+          "lieu": string | null;
+          "typeContrat": string;
+          "statut": string;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "titre": string;
+          "description"?: string | null;
+          "salaireMin"?: number | null;
+          "salaireMax"?: number | null;
+          "lieu"?: string | null;
+          "typeContrat"?: string;
+          "statut"?: string;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "titre"?: string;
+          "description"?: string | null;
+          "salaireMin"?: number | null;
+          "salaireMax"?: number | null;
+          "lieu"?: string | null;
+          "typeContrat"?: string;
+          "statut"?: string;
+          "createdAt"?: string;
+          "updatedAt"?: string;
         };
         Relationships: [];
       };
