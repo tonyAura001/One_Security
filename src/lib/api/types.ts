@@ -105,7 +105,7 @@ export interface Attendance {
   date: string;
   checkIn: string | null;
   checkOut: string | null;
-  status: "present" | "retard" | "absent";
+  status: "present" | "retard" | "absent" | "non_pointe";
 }
 
 /* ---------------- Payroll ---------------- */

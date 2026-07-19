@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchShifts } from "@/lib/supabase/data/planning";
+import { fetchAgents } from "@/lib/supabase/data/agents";
 import type { Shift } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText, toneTint } from "@/lib/colors";
@@ -51,10 +52,19 @@ const shiftKey = (agent: string, day: number): string => `${agent}|${day}`;
 
 export function OpsPlanning() {
   const [site, setSite] = useState<string>("all");
-  const { data } = useQuery({ queryKey: ["shifts"], queryFn: fetchShifts });
-  const shifts = data ?? [];
-  const AGENTS = Array.from(new Set(shifts.map((s) => s.agent)));
-  const siteOptions = Array.from(new Set(shifts.map((s) => s.site)));
+  const { data: shiftData } = useQuery({
+    queryKey: ["shifts"],
+    queryFn: fetchShifts,
+  });
+  // Roster = les agents de sécurité réels (AgentSecurite). Les vacations
+  // (RondeAgent) se superposent dessus quand elles existent.
+  const agentsQ = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const shifts = shiftData ?? [];
+  const roster = agentsQ.data ?? [];
+  const siteOptions = Array.from(new Set(roster.map((a) => a.site))).sort();
+  const AGENTS = (
+    site === "all" ? roster : roster.filter((a) => a.site === site)
+  ).map((a) => a.name);
   const SHIFT_INDEX = new Map<string, Shift>(
     shifts.map((s) => [shiftKey(s.agent, s.day), s]),
   );
@@ -96,12 +106,12 @@ export function OpsPlanning() {
       </div>
 
       {/* Weekly grid */}
-      {shifts.length === 0 ? (
+      {AGENTS.length === 0 ? (
         <Card className="p-4">
           <EmptyState
             icon={CalendarOff}
-            title="Aucun planning pour le moment"
-            description="Les vacations planifiées apparaîtront ici."
+            title="Aucun agent pour le moment"
+            description="Les agents et leurs vacations apparaîtront ici."
           />
         </Card>
       ) : (

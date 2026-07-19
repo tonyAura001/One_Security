@@ -17,6 +17,7 @@ const STATUS_META: Record<Status, { variant: PillVariant; label: string }> = {
   present: { variant: "success", label: "Présent" },
   retard: { variant: "warning", label: "Retard" },
   absent: { variant: "danger", label: "Absent" },
+  non_pointe: { variant: "neutral", label: "Non pointé" },
 };
 
 interface StatCard {
@@ -32,22 +33,13 @@ export function OpsPresences() {
   const attendance = attQuery.data ?? [];
   const present = attendance.filter((a) => a.status === "present").length;
   const retard = attendance.filter((a) => a.status === "retard").length;
-  const absent = attendance.filter((a) => a.status === "absent").length;
-  const rate =
-    attendance.length > 0
-      ? ((present + retard) / attendance.length) * 100
-      : 0;
+  const nonPointe = attendance.filter((a) => a.status === "non_pointe").length;
 
   const stats: StatCard[] = [
-    {
-      label: "Taux de présence",
-      value: rate.toLocaleString("fr-FR", { maximumFractionDigits: 1 }),
-      unit: "%",
-      tone: "success",
-    },
-    { label: "Présents", value: String(present), tone: "foreground" },
+    { label: "Effectif", value: String(attendance.length), tone: "foreground" },
+    { label: "Présents", value: String(present), tone: "success" },
     { label: "Retards", value: String(retard), tone: "warning" },
-    { label: "Absents", value: String(absent), tone: "danger" },
+    { label: "Non pointés", value: String(nonPointe), tone: "muted" },
   ];
 
   return (
@@ -76,7 +68,7 @@ export function OpsPresences() {
       {/* Attendance table */}
       <Card className="p-[18px_20px]">
         <div className="text-foreground mb-3.5 text-[15px] font-extrabold tracking-[-0.3px]">
-          Présences du mois — Juin 2026
+          Feuille de présence
         </div>
 
         {/* Header */}

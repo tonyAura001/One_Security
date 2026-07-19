@@ -1,10 +1,12 @@
 /**
- * Présences = agrégation des événements `Pointage` (ARRIVEE/DEPART) en une
- * ligne journalière par agent. Sécurisé par RLS (pointage_read_ops + join
- * User/Site). Statut dérivé de l'heure d'arrivée (absent si aucune arrivée).
+ * Présences = roster des **agents de sécurité terrain** (`AgentSecurite`, les
+ * 67 agents importés) sur lequel on superpose les événements `Pointage`
+ * (ARRIVEE/DEPART) du jour. Une ligne par agent. Sécurisé par RLS
+ * (agents_securite_read + pointage_read_ops).
  *
- * Compromis assumé : les « agents » sont ici les utilisateurs (User) — pas
- * encore de roster d'agents terrain dédié.
+ * Tant qu'un agent n'a pas d'événement d'arrivée, son statut est « non_pointe »
+ * (neutre) — pas « absent », qui serait faux. Les responsables enregistrent le
+ * pointage au fil de l'eau ; les statuts se colorent alors automatiquement.
  */
 import { createClient } from "@/lib/supabase/client";
 import type { Attendance } from "@/lib/api/types";
@@ -15,10 +17,11 @@ interface DbPointage {
   agentId: string;
   Site: { nom: string } | { nom: string }[] | null;
 }
-interface DbUser {
+interface DbAgent {
   id: string;
   prenom: string;
-  nom: string;
+  nom: string | null;
+  poste: string | null;
 }
 
 const SEUIL_RETARD = "07:00";
@@ -28,16 +31,21 @@ function hhmm(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** Présences du jour, une ligne par agent (selon RLS). */
+/** Présences du jour, une ligne par agent terrain (selon RLS). */
 export async function fetchAttendance(): Promise<Attendance[]> {
   const supabase = createClient();
-  const [pts, users] = await Promise.all([
+  const [pts, agents] = await Promise.all([
     supabase.from("Pointage").select("type,dateHeure,agentId,Site(nom)"),
-    supabase.from("User").select("id,prenom,nom").order("nom"),
+    supabase
+      .from("AgentSecurite")
+      .select("id,prenom,nom,poste")
+      .order("prenom"),
   ]);
   if (pts.error) throw pts.error;
-  if (users.error) throw users.error;
+  if (agents.error) throw agents.error;
 
+  // Regroupe les événements de pointage par agent (forward-compatible : dès que
+  // des pointages référencent un AgentSecurite, ils s'agrègent ici).
   const byAgent = new Map<string, DbPointage[]>();
   for (const p of pts.data as unknown as DbPointage[]) {
     const list = byAgent.get(p.agentId);
@@ -47,23 +55,24 @@ export async function fetchAttendance(): Promise<Attendance[]> {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  return (users.data as unknown as DbUser[]).map((u): Attendance => {
-    const events = (byAgent.get(u.id) ?? []).sort((a, b) =>
-      a.dateHeure.localeCompare(b.dateHeure),
+  return (agents.data as unknown as DbAgent[]).map((a): Attendance => {
+    const events = (byAgent.get(a.id) ?? []).sort((x, y) =>
+      x.dateHeure.localeCompare(y.dateHeure),
     );
     const arr = events.find((e) => e.type === "ARRIVEE");
     const dep = events.find((e) => e.type === "DEPART");
     const site = arr && (Array.isArray(arr.Site) ? arr.Site[0] : arr.Site);
     const checkIn = arr ? hhmm(arr.dateHeure) : null;
     const status: Attendance["status"] = !arr
-      ? "absent"
+      ? "non_pointe"
       : checkIn! > SEUIL_RETARD
         ? "retard"
         : "present";
     return {
-      id: u.id,
-      agent: `${u.prenom} ${u.nom}`.trim(),
-      site: site?.nom ?? "—",
+      id: a.id,
+      agent: `${a.prenom} ${a.nom ?? ""}`.trim(),
+      // Site = celui du pointage si présent, sinon l'affectation de l'agent.
+      site: site?.nom ?? a.poste ?? "—",
       date: arr ? arr.dateHeure.slice(0, 10) : today,
       checkIn,
       checkOut: dep ? hhmm(dep.dateHeure) : null,

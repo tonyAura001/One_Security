@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { formatDateFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchAttendance } from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
@@ -21,6 +20,7 @@ const STATUS_META: Record<Status, { variant: PillVariant; label: string }> = {
   present: { variant: "success", label: "Présent" },
   retard: { variant: "warning", label: "Retard" },
   absent: { variant: "danger", label: "Absent" },
+  non_pointe: { variant: "neutral", label: "Non pointé" },
 };
 
 const ALL = "__all__";
@@ -40,7 +40,10 @@ export function OpsPointage() {
   const attendance = attQuery.data ?? [];
   const [site, setSite] = useState<string>(ALL);
 
-  const sites = useMemo(() => [...new Set(attendance.map((a) => a.site))], []);
+  const sites = useMemo(
+    () => [...new Set(attendance.map((a) => a.site))],
+    [attendance],
+  );
 
   const filtered =
     site === ALL ? attendance : attendance.filter((a) => a.site === site);
@@ -73,7 +76,7 @@ export function OpsPointage() {
           />
         ))}
         <span className="text-muted ml-auto self-center text-[12px] font-semibold">
-          Pointage du {formatDateFR("2026-07-03")}
+          Pointage du jour
         </span>
       </div>
 
