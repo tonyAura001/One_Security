@@ -1195,6 +1195,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Tache": {
+        Row: {
+          "id": string;
+          "titre": string;
+          "description": string | null;
+          "priorite": string;
+          "echeance": string | null;
+          "terminee": boolean;
+          "assigneAId": string | null;
+          "creeParId": string | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "titre": string;
+          "description"?: string | null;
+          "priorite"?: string;
+          "echeance"?: string | null;
+          "terminee"?: boolean;
+          "assigneAId"?: string | null;
+          "creeParId"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "titre"?: string;
+          "description"?: string | null;
+          "priorite"?: string;
+          "echeance"?: string | null;
+          "terminee"?: boolean;
+          "assigneAId"?: string | null;
+          "creeParId"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "User": {
         Row: {
           "id": string;

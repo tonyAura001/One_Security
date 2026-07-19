@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { formatDateFR } from "@/lib/format";
 import { TASKS } from "@/lib/api/data";
+import { fetchTaches, toggleTacheDone } from "@/lib/supabase/data/taches";
+import { toast } from "@/lib/toast";
 import type { Task } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText, toneTint } from "@/lib/colors";
@@ -75,14 +78,27 @@ function initials(name: string): string {
 }
 
 export function SharedTaches() {
-  const [done, setDone] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(TASKS.map((t) => [t.id, t.done])),
-  );
+  // Tâches réelles via Supabase (RLS) ; repli démo si accès refusé.
+  const { data, isSuccess } = useQuery({ queryKey: ["taches"], queryFn: fetchTaches });
+  const tasks = isSuccess && data.length > 0 ? data : TASKS;
+  const live = isSuccess && data.length > 0;
 
-  const toggle = (id: string) =>
-    setDone((prev) => ({ ...prev, [id]: !prev[id] }));
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setDone(Object.fromEntries(tasks.map((t) => [t.id, t.done])));
+  }, [tasks]);
 
-  const remaining = TASKS.filter((t) => !done[t.id]).length;
+  const toggle = (id: string) => {
+    const next = !done[id];
+    setDone((prev) => ({ ...prev, [id]: next }));
+    if (live) {
+      toggleTacheDone(id, next).catch(() =>
+        toast.error("Modification refusée (accès requis)"),
+      );
+    }
+  };
+
+  const remaining = tasks.filter((t) => !done[t.id]).length;
 
   return (
     <ScreenContainer>
@@ -98,7 +114,7 @@ export function SharedTaches() {
         </div>
 
         <div className="flex flex-col">
-          {TASKS.map((task, i) => {
+          {tasks.map((task, i) => {
             const isDone = done[task.id];
             const meta = PRIORITY_META[task.priority];
             const tone = AVATAR_TONES[i % AVATAR_TONES.length];
@@ -107,7 +123,7 @@ export function SharedTaches() {
                 key={task.id}
                 className={cn(
                   "flex flex-wrap items-center gap-3 py-3.5",
-                  i < TASKS.length - 1 && "border-border border-b",
+                  i < tasks.length - 1 && "border-border border-b",
                 )}
               >
                 <button
