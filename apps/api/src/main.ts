@@ -46,6 +46,8 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT') ?? 4000;
-  await app.listen(port);
+  // Bind explicite sur 0.0.0.0 : requis par les hôtes conteneur (Render, etc.)
+  // pour détecter le port ouvert (l'hôte injecte PORT).
+  await app.listen(port, '0.0.0.0');
 }
 void bootstrap();

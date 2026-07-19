@@ -41,30 +41,26 @@ Sur le provider choisi (Railway / Render / Fly / Cloud Run…) :
 4. Domaine + certificat SSL (géré par le provider ou via un reverse proxy).
 5. Vérifier : `GET https://<api>/api/health` → 200, `GET /api/docs` → Swagger.
 
-### Railway (procédure retenue)
+### Render (procédure retenue — conteneur Docker, plan gratuit)
 
-Le dépôt fournit `railway.json` (builder Dockerfile + healthcheck `/api/health`).
+Le dépôt fournit un blueprint **`render.yaml`** (à la racine) : service web Docker,
+`rootDir: apps/api`, healthcheck `/api/health`, secrets en `sync: false`.
 
-```bash
-# depuis apps/api
-railway login                     # interactif (navigateur)
-railway init                      # créer le projet, ou: railway link
-# Variables (ne PAS committer les valeurs) — via dashboard ou CLI :
-railway variables \
-  --set "DATABASE_URL=…pooler 6543…" \
-  --set "DIRECT_URL=…direct 5432…" \
-  --set "SUPABASE_URL=https://wypoifuwyylvbzuwmuct.supabase.co" \
-  --set "SUPABASE_ANON_KEY=…" \
-  --set "SUPABASE_SERVICE_ROLE_KEY=…" \
-  --set "SUPABASE_JWT_SECRET=…" \
-  --set "NODE_ENV=production" \
-  --set "CORS_ORIGINS=https://pilotepme-sandy.vercel.app"
-railway up                        # build Dockerfile + déploie (db:deploy au boot)
-railway domain                    # génère un domaine public
-```
+1. Dashboard Render → **New → Blueprint** → connecter le repo GitHub
+   `tonyAura001/One_Security` (branche `main`). Render lit `render.yaml`.
+2. Renseigner les variables `sync: false` (jamais dans le repo) :
+   - `DATABASE_URL` → Supabase **Session pooler** (port **5432**, IPv4) —
+     supporte le runtime **et** `migrate deploy`. *(Ne pas mettre le pooler
+     transactionnel 6543 : il casse les migrations.)*
+   - `DIRECT_URL` → connexion directe (5432).
+   - `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`.
+3. Render build le Dockerfile → le conteneur lance `pnpm db:deploy` (migrations)
+   puis `node dist/main`. Render injecte `PORT` (l'app lit `process.env.PORT`).
+4. Récupérer l'URL publique `https://pilotepme-api-XXXX.onrender.com`.
+5. Vérifier : `GET /api/health` → 200, `GET /api/docs` → Swagger.
 
-Railway injecte `PORT` automatiquement (l'app lit `process.env.PORT`). Le
-conteneur applique les migrations (`pnpm db:deploy`) au démarrage.
+> Plan gratuit : le service s'endort après ~15 min d'inactivité (réveil ~30-60 s
+> à la 1ʳᵉ requête). Passer à un plan payant pour un conteneur toujours actif.
 
 ### Secrets CI (GitHub → Settings → Secrets)
 - GHCR : aucun secret requis (utilise `GITHUB_TOKEN`).
