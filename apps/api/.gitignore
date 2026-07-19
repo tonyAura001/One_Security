@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+
+# Keep environment variables out of version control
+.env
+.env.*.local
+
+# ...but the template MUST be committed (overrides the root-level ".env*" ignore)
+!.env.example
+
+/generated/prisma
