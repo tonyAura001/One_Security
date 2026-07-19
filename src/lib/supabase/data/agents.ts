@@ -51,6 +51,55 @@ export async function fetchAgents(): Promise<Agent[]> {
   return (data as unknown as DbAgent[]).map(mapAgent);
 }
 
+/** Fiche brute d'un agent (pour l'édition par les responsables). */
+export interface AgentRecord {
+  id: string;
+  prenom: string;
+  nom: string | null;
+  telephone: string | null;
+  telephone2: string | null;
+  adresse: string | null;
+  poste: string | null;
+  salaire: number | null;
+  statut: string;
+  matricule: string | null;
+  numeroCni: string | null;
+  dateNaissance: string | null;
+  lieuNaissance: string | null;
+  dateDebutRaw: string | null;
+}
+
+export async function fetchAgentRecord(id: string): Promise<AgentRecord> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("AgentSecurite")
+    .select(
+      "id,prenom,nom,telephone,telephone2,adresse,poste,salaire,statut,matricule,numeroCni,dateNaissance,lieuNaissance,dateDebutRaw",
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data as unknown as AgentRecord;
+}
+
+/** Met à jour une fiche agent (RLS : DG/RP/RH/MANAGER). */
+export async function updateAgent(
+  id: string,
+  patch: Partial<Omit<AgentRecord, "id">>,
+): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("AgentSecurite")
+    .update(patch)
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  // RLS peut filtrer la ligne (0 modifiée) sans erreur → traiter comme refus.
+  if (!data || data.length === 0) {
+    throw new Error("row-level security: aucune ligne modifiée (accès refusé)");
+  }
+}
+
 /** KPIs agents dérivés de la liste (remplace getAgentStats mock). */
 export function computeAgentStats(agents: Agent[]): AgentStats {
   return {

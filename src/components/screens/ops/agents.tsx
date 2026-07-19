@@ -36,6 +36,7 @@ import {
   type AgentStatus,
 } from "@/lib/api/agents";
 import { fetchAgents, computeAgentStats } from "@/lib/supabase/data/agents";
+import { AgentEditDialog } from "./agent-edit-dialog";
 import { toneText } from "@/lib/colors";
 import { formatDateFR } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -280,6 +281,9 @@ function AgentDetail({ agent }: { agent: Agent }) {
           </StatusPill>
           <span className="text-muted text-[12px] font-semibold">
             Présence {agent.attendanceRate} %
+          </span>
+          <span className="ml-auto">
+            <AgentEditDialog agentId={agent.id} />
           </span>
         </div>
 
