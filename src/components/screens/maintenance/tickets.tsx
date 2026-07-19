@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { NewTicketDialog } from "./new-ticket-dialog";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KanbanBoard, type KanbanColumn } from "@/components/ui/kanban-board";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchTickets, updateTicketStage } from "@/lib/supabase/data/maintenance";
@@ -58,10 +57,7 @@ export function MaintenanceTickets() {
         <div className="text-muted text-[11px] font-bold tracking-[0.7px]">
           TICKETS DE MAINTENANCE · PAR CRITICITÉ
         </div>
-        <Button onClick={() => toast.info("Création d'un nouveau ticket")}>
-          <Plus strokeWidth={2.4} />
-          Nouveau ticket
-        </Button>
+        <NewTicketDialog />
       </div>
 
       {tickets.length === 0 ? (

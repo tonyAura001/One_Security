@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageIcon } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -10,9 +10,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
-import { fetchInterventions } from "@/lib/supabase/data/maintenance";
+import {
+  fetchInterventions,
+  updateInterventionStatut,
+} from "@/lib/supabase/data/maintenance";
 import type { Intervention } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { NewInterventionDialog } from "./new-intervention-dialog";
+import { RapportDialog } from "./rapport-dialog";
 
 type Status = Intervention["status"];
 
@@ -48,10 +53,33 @@ export function MaintenanceInterventions() {
   const selected =
     interventions.find((i) => i.id === selectedId) ?? interventions[0];
 
+  const qc = useQueryClient();
+  const cloturerMut = useMutation({
+    mutationFn: (id: string) => updateInterventionStatut(id, "terminee"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["interventions"] });
+      toast.success("Intervention clôturée");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level security|policy|permission/i.test(msg)
+          ? "Accès refusé pour clôturer l'intervention."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
+
   if (!selected) {
     return (
       <ScreenContainer>
-        <EmptyState title="Aucune donnée pour le moment" />
+        <div className="mb-4 flex items-center justify-end">
+          <NewInterventionDialog />
+        </div>
+        <EmptyState
+          title="Aucune intervention"
+          description="Créez une intervention pour suivre le terrain."
+        />
       </ScreenContainer>
     );
   }
@@ -108,18 +136,17 @@ export function MaintenanceInterventions() {
         <div className="flex gap-2.5">
           <Button
             className="bg-success flex-1 text-white hover:brightness-110"
-            onClick={() =>
-              toast.success(`Intervention ${selected.ref} clôturée`)
-            }
+            disabled={cloturerMut.isPending || selected.status === "terminee"}
+            onClick={() => cloturerMut.mutate(selected.id)}
           >
-            Clôturer l&apos;intervention
+            {selected.status === "terminee"
+              ? "Intervention clôturée"
+              : "Clôturer l'intervention"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => toast.info("Rapport enregistré")}
-          >
-            Enregistrer
-          </Button>
+          <RapportDialog
+            interventionId={selected.id}
+            current={selected.summary}
+          />
         </div>
       </Card>
 
@@ -129,9 +156,12 @@ export function MaintenanceInterventions() {
           <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
             Historique des interventions
           </div>
-          <span className="text-muted text-[12px] font-bold">
-            {interventions.length} au total
-          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-muted text-[12px] font-bold">
+              {interventions.length} au total
+            </span>
+            <NewInterventionDialog />
+          </div>
         </div>
 
         {/* Header */}
