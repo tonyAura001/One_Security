@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   MoreHorizontal,
   Pause,
@@ -32,12 +33,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMembersStore, STATUT_META, type Member } from "@/lib/store/members";
+import { fetchMembers } from "@/lib/supabase/data/members";
 import { ROLE_ORDER, ROLES, type RoleId } from "@/lib/rbac";
 import { formatRelative } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
 export function AdminMembres() {
   const { members, suspend, reactivate, revoke, invite } = useMembersStore();
+  // Hydrate le store depuis la table User (RLS DG/RH) ; repli SEED démo sinon.
+  const { data, isSuccess } = useQuery({
+    queryKey: ["members"],
+    queryFn: fetchMembers,
+  });
+  useEffect(() => {
+    if (isSuccess && data.length > 0) {
+      useMembersStore.setState({ members: data });
+    }
+  }, [isSuccess, data]);
   const [query, setQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
 
