@@ -50,6 +50,9 @@ export function ComptaRelances() {
 
   const totalLate = relances.reduce((sum, r) => sum + r.amount, 0);
   const noticeCount = relances.filter((r) => r.stage === "J+45").length;
+  const avgLate = relances.length
+    ? Math.round(relances.reduce((s, r) => s + r.daysLate, 0) / relances.length)
+    : 0;
 
   const stats: StatCard[] = [
     {
@@ -58,17 +61,21 @@ export function ComptaRelances() {
       unit: "FCFA",
       tone: "danger",
     },
-    { label: "Relances envoyées", value: "3", tone: "foreground" },
+    {
+      label: "Factures en retard",
+      value: String(relances.length),
+      tone: "foreground",
+    },
     {
       label: "Mises en demeure",
       value: String(noticeCount),
       tone: "warning",
     },
     {
-      label: "Recouvré ce mois",
-      value: formatNumberFR(2340000),
-      unit: "FCFA",
-      tone: "success",
+      label: "Retard moyen",
+      value: String(avgLate),
+      unit: "j",
+      tone: "accent",
     },
   ];
 

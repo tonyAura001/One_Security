@@ -221,9 +221,9 @@ export function FinanceFacturation() {
   const encaisse = sum(paid);
   const attente = sum(sent);
   const retard = sum(late);
-  const recouvrement = Math.round(
-    (encaisse / (encaisse + attente + retard)) * 100,
-  );
+  const totalFacture = encaisse + attente + retard;
+  const recouvrement =
+    totalFacture > 0 ? Math.round((encaisse / totalFacture) * 100) : 0;
 
   const meta = TAB_LABELS[tab];
 

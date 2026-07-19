@@ -2,56 +2,75 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { Download, FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { formatNumberFR, formatFCFA } from "@/lib/format";
+import { formatNumberFR, formatFCFA, formatDateFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
+import { downloadCsv } from "@/lib/csv";
 import { fetchPayslips } from "@/lib/supabase/data/payroll";
 
-const BANKS = ["CBAO", "BICIS", "SGBS", "Ecobank", "Bank of Africa"] as const;
-const BANK_CODES = ["CB01", "BI03", "SG05", "EC07", "BA09"] as const;
-
-/** Deterministic masked IBAN placeholder (SICA-UEMOA / BCEAO format). */
-function ibanFor(index: number): string {
-  const code = BANK_CODES[index % BANK_CODES.length];
-  const last4 = String(1000 + ((index * 137) % 9000));
-  return `SN08 ${code} 0100 •••• ${last4}`;
-}
+/** Période courante des bulletins (source unique pour la requête + le titre). */
+const PERIODE = "2026-06";
+const periodeLabel = formatDateFR(`${PERIODE}-01`, "MMMM yyyy");
 
 export function ComptaExportPaie() {
   const { data } = useQuery({
-    queryKey: ["payslips"],
-    queryFn: () => fetchPayslips(),
+    queryKey: ["payslips", PERIODE],
+    queryFn: () => fetchPayslips(PERIODE),
   });
   const payslips = data ?? [];
   const total = payslips.reduce((sum, p) => sum + p.net, 0);
   const count = payslips.length;
 
+  function handleExport() {
+    if (count === 0) {
+      toast.info("Aucun bulletin à exporter pour cette période.");
+      return;
+    }
+    const rows: (string | number)[][] = [
+      ["Bénéficiaire", "Rôle", "Jours", "Brut", "IPRES", "CSS", "IR", "Net"],
+      ...payslips.map((p) => [
+        p.agent,
+        p.role,
+        p.days,
+        p.gross,
+        p.ipres,
+        p.css,
+        p.ir,
+        p.net,
+      ]),
+      ["Total", "", "", "", "", "", "", total],
+    ];
+    downloadCsv(`paie-${PERIODE}.csv`, rows);
+    toast.success(`Export CSV généré · ${count} bénéficiaires`);
+  }
+
   return (
     <ScreenContainer className="max-w-[1040px]">
       <Card className="p-[18px_20px]">
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-            Ordre de virement — Salaires Juin 2026
+          <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px] capitalize">
+            Récapitulatif de paie — {periodeLabel}
           </div>
-          <StatusPill variant="warning" uppercase>
-            Prêt à générer
+          <StatusPill variant={count > 0 ? "success" : "neutral"} uppercase>
+            {count > 0 ? "Prêt à exporter" : "Aucun bulletin"}
           </StatusPill>
         </div>
         <div className="text-muted mb-4 text-[12px] font-semibold">
-          {count} virements · format SICA-UEMOA · total net {formatFCFA(total)}
+          {count} bulletins · total net {formatFCFA(total)}
         </div>
 
         {/* Header */}
         <div className="border-border text-muted flex items-center gap-3.5 border-b px-1 pb-2.5 text-[10.5px] font-bold tracking-[0.4px] uppercase">
-          <div className="flex-[1.2]">Bénéficiaire</div>
-          <div className="w-[110px]">Banque</div>
-          <div className="flex-[1.3]">IBAN</div>
-          <div className="w-[120px] text-right">Montant net</div>
+          <div className="flex-[1.4]">Bénéficiaire</div>
+          <div className="w-[150px]">Rôle</div>
+          <div className="w-[70px] text-center">Jours</div>
+          <div className="w-[120px] text-right">Brut</div>
+          <div className="w-[120px] text-right">Net</div>
         </div>
 
         {/* Rows */}
@@ -62,14 +81,17 @@ export function ComptaExportPaie() {
               i < payslips.length - 1 ? "border-border border-b" : ""
             }`}
           >
-            <div className="text-foreground flex-[1.2] truncate text-[12.5px] font-bold">
+            <div className="text-foreground flex-[1.4] truncate text-[12.5px] font-bold">
               {p.agent}
             </div>
-            <div className="text-muted w-[110px] truncate text-[11.5px] font-semibold">
-              {BANKS[i % BANKS.length]}
+            <div className="text-muted w-[150px] truncate text-[11.5px] font-semibold">
+              {p.role}
             </div>
-            <div className="text-muted flex-[1.3] truncate font-mono text-[11.5px] font-semibold">
-              {ibanFor(i)}
+            <div className="tnum text-muted w-[70px] text-center text-[12px] font-semibold">
+              {p.days}
+            </div>
+            <div className="tnum text-muted w-[120px] text-right text-[12px] font-semibold">
+              {formatNumberFR(p.gross)}
             </div>
             <div className="tnum text-foreground w-[120px] text-right text-[12.5px] font-extrabold">
               {formatNumberFR(p.net)}
@@ -77,37 +99,25 @@ export function ComptaExportPaie() {
           </div>
         ))}
 
-        {payslips.length === 0 && (
-          <EmptyState title="Aucune donnée pour le moment" />
+        {count === 0 && (
+          <EmptyState
+            title="Aucun bulletin pour cette période"
+            description={`Aucun bulletin de paie pour ${periodeLabel}.`}
+          />
         )}
 
-        {/* Footer / total + actions */}
+        {/* Footer / total + action */}
         <div className="border-border mt-4 flex flex-wrap items-center justify-between gap-3 border-t-2 pt-4">
           <div className="text-muted text-[12px] font-semibold">
             {count} bénéficiaires ·{" "}
             <span className="text-foreground font-extrabold">
-              Total {formatFCFA(total)}
+              Total net {formatFCFA(total)}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              variant="outline"
-              onClick={() => toast.info("Export du récapitulatif en cours…")}
-            >
-              <FileSpreadsheet strokeWidth={1.8} />
-              Exporter
-            </Button>
-            <Button
-              onClick={() =>
-                toast.success(
-                  `Fichier SICA-UEMOA généré · ${count} virements · ${formatFCFA(total)}`,
-                )
-              }
-            >
-              <Download strokeWidth={1.8} />
-              Générer le fichier SICA-UEMOA
-            </Button>
-          </div>
+          <Button onClick={handleExport} disabled={count === 0}>
+            <FileSpreadsheet strokeWidth={1.8} />
+            Exporter (CSV)
+          </Button>
         </div>
       </Card>
     </ScreenContainer>

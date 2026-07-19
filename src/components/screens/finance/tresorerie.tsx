@@ -43,6 +43,7 @@ import {
 } from "@/lib/api/treasury";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatFCFA, formatFCFACompact, formatDateFR } from "@/lib/format";
+import { downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
@@ -140,7 +141,23 @@ export function TresorerieScreen() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => toast.info("Export trésorerie", "Fonction de démonstration")}
+            onClick={() => {
+              if (movements.length === 0) {
+                toast.info("Aucun mouvement à exporter.");
+                return;
+              }
+              downloadCsv("tresorerie-mouvements.csv", [
+                ["Date", "Libellé", "Catégorie", "Moyen", "Montant"],
+                ...movements.map((m) => [
+                  m.date,
+                  m.label,
+                  m.category,
+                  m.method,
+                  m.amount,
+                ]),
+              ]);
+              toast.success(`Export CSV · ${movements.length} mouvements`);
+            }}
           >
             <Download className="size-4" /> Exporter
           </Button>
