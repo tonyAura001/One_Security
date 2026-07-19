@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { Pencil, Camera } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -21,6 +21,7 @@ import {
   updateAgent,
   type AgentRecord,
 } from "@/lib/supabase/data/agents";
+import { uploadAgentPhoto, getSignedUrl } from "@/lib/supabase/data/files";
 
 /** Rôles autorisés à éditer une fiche agent (aligné sur la RLS). */
 const CAN_EDIT: RoleId[] = ["dg", "rp", "rh", "manager"];
@@ -88,6 +89,22 @@ export function AgentEditDialog({ agentId }: { agentId: string }) {
     },
   });
 
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoQ = useQuery({
+    queryKey: ["agent-photo", agentId, data?.photoPath],
+    queryFn: () => getSignedUrl(data!.photoPath!),
+    enabled: open && !!data?.photoPath,
+  });
+  const photoMut = useMutation({
+    mutationFn: (file: File) => uploadAgentPhoto(agentId, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent-record", agentId] });
+      qc.invalidateQueries({ queryKey: ["agent-photo", agentId] });
+      toast.success("Photo mise à jour");
+    },
+    onError: () => toast.error("Upload de la photo refusé."),
+  });
+
   function set<K extends keyof Editable>(k: K, v: Editable[K]) {
     setForm((f) => (f ? { ...f, [k]: v } : f));
   }
@@ -117,6 +134,46 @@ export function AgentEditDialog({ agentId }: { agentId: string }) {
             }}
             className="flex flex-col gap-3"
           >
+            {/* Photo de l'agent */}
+            <div className="flex items-center gap-3">
+              <div className="bg-surface2 border-border flex size-16 flex-none items-center justify-center overflow-hidden rounded-full border">
+                {photoQ.data ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoQ.data}
+                    alt="Photo de l'agent"
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <Camera className="text-muted size-6" strokeWidth={1.8} />
+                )}
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoMut.isPending}
+                >
+                  <Camera className="size-3.5" strokeWidth={2.2} />
+                  {photoMut.isPending ? "Envoi…" : "Changer la photo"}
+                </Button>
+                <p className="text-muted mt-1 text-[10.5px]">JPG / PNG</p>
+              </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) photoMut.mutate(f);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={label}>Prénom *</label>

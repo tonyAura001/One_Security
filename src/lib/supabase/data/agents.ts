@@ -67,6 +67,7 @@ export interface AgentRecord {
   dateNaissance: string | null;
   lieuNaissance: string | null;
   dateDebutRaw: string | null;
+  photoPath: string | null;
 }
 
 export async function fetchAgentRecord(id: string): Promise<AgentRecord> {
@@ -74,7 +75,7 @@ export async function fetchAgentRecord(id: string): Promise<AgentRecord> {
   const { data, error } = await supabase
     .from("AgentSecurite")
     .select(
-      "id,prenom,nom,telephone,telephone2,adresse,poste,salaire,statut,matricule,numeroCni,dateNaissance,lieuNaissance,dateDebutRaw",
+      "id,prenom,nom,telephone,telephone2,adresse,poste,salaire,statut,matricule,numeroCni,dateNaissance,lieuNaissance,dateDebutRaw,photoPath",
     )
     .eq("id", id)
     .single();

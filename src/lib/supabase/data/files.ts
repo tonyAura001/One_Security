@@ -58,6 +58,28 @@ export async function fetchCandidatureFiles(
   return data as unknown as FichierMeta[];
 }
 
+/** Upload/remplacement de la photo d'un agent + enregistrement du chemin. */
+export async function uploadAgentPhoto(
+  agentId: string,
+  file: File,
+): Promise<void> {
+  const supabase = createClient();
+  const path = `agents/${agentId}/photo`;
+  const up = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+  if (up.error) throw up.error;
+  const { data, error } = await supabase
+    .from("AgentSecurite")
+    .update({ photoPath: path })
+    .eq("id", agentId)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("row-level security: accès refusé");
+  }
+}
+
 /** URL signée (60 s) pour visualiser/télécharger un fichier privé. */
 export async function getSignedUrl(chemin: string): Promise<string> {
   const supabase = createClient();

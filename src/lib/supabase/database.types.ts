@@ -26,6 +26,7 @@ export type Database = {
           "statut": string;
           "createdAt": string;
           "updatedAt": string;
+          "photoPath": string | null;
         };
         Insert: {
           "id"?: string;
@@ -45,6 +46,7 @@ export type Database = {
           "statut"?: string;
           "createdAt"?: string;
           "updatedAt"?: string;
+          "photoPath"?: string | null;
         };
         Update: {
           "id"?: string;
@@ -64,6 +66,7 @@ export type Database = {
           "statut"?: string;
           "createdAt"?: string;
           "updatedAt"?: string;
+          "photoPath"?: string | null;
         };
         Relationships: [];
       };
