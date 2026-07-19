@@ -52,6 +52,34 @@ export async function fetchCatalogue(): Promise<CatalogueItem[]> {
   return (data as unknown as DbMateriel[]).map(mapItem);
 }
 
+export interface NewMaterielInput {
+  type: string; // enum MaterielType (VEHICULE, ARME, EQUIPEMENT, UNIFORME, RADIO, AUTRE)
+  marque?: string;
+  modele?: string;
+  numeroSerie?: string;
+  quantite: number;
+  coutAcquisition?: number | null;
+}
+
+/** Crée une référence de matériel (RLS materiel_insert : DG/RP/RF/COMPTABLE/MANAGER). */
+export async function createMateriel(i: NewMaterielInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Materiel")
+    .insert({
+      type: i.type,
+      marque: i.marque?.trim() || null,
+      modele: i.modele?.trim() || null,
+      numeroSerie: i.numeroSerie?.trim() || null,
+      quantite: Math.max(0, Math.round(i.quantite)),
+      coutAcquisition: i.coutAcquisition ?? null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export function computeCatalogueStats(items: CatalogueItem[]): CatalogueStats {
   return {
     references: items.length,

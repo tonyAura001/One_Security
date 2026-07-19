@@ -12,13 +12,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { fetchReceipts } from "@/lib/supabase/data/caisse";
 import type { Receipt } from "@/lib/api/types";
 import { formatFCFA, formatNumberFR } from "@/lib/format";
-import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { NewVenteDialog } from "./new-vente-dialog";
 
-const METHOD_VARIANT: Record<Receipt["method"], PillVariant> = {
+const METHOD_VARIANT: Record<string, PillVariant> = {
   Espèces: "success",
   Wave: "info",
   "Orange Money": "warning",
+  Carte: "violet",
 };
 
 export function CaissierRecus() {
@@ -38,9 +39,12 @@ export function CaissierRecus() {
             <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
               Reçus émis — aujourd&apos;hui
             </div>
-            <span className="text-muted text-[12px] font-bold">
-              {formatNumberFR(receipts.length)} reçus · {formatFCFA(totalDay)}
-            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-muted text-[12px] font-bold">
+                {formatNumberFR(receipts.length)} reçus · {formatFCFA(totalDay)}
+              </span>
+              <NewVenteDialog />
+            </div>
           </div>
 
           <div className="border-border text-muted flex items-center gap-3.5 border-b px-1 pb-2.5 text-[10.5px] font-bold tracking-[0.4px] uppercase">
@@ -149,12 +153,10 @@ export function CaissierRecus() {
               <Button
                 variant="outline"
                 className="mt-4 w-full"
-                onClick={() =>
-                  toast.success(`Reçu ${selected.ref} envoyé à l'impression`)
-                }
+                onClick={() => window.print()}
               >
                 <Printer strokeWidth={1.8} />
-                Réimprimer le reçu
+                Imprimer le reçu
               </Button>
             </div>
           ) : (

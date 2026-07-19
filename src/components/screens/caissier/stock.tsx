@@ -4,16 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { AlertTriangle, Boxes, PackageX, Plus, Wallet } from "lucide-react";
+import { AlertTriangle, Boxes, PackageX, Wallet } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
+import { NewProduitDialog } from "./new-produit-dialog";
+import { EntreeStockDialog } from "./entree-stock-dialog";
 import { fetchProduits } from "@/lib/supabase/data/caisse";
 import type { Product } from "@/lib/api/types";
 import { formatFCFACompact, formatNumberFR } from "@/lib/format";
-import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type StockStatus = "rupture" | "seuil" | "ok";
@@ -110,10 +110,10 @@ export function CaissierStock() {
             réapprovisionner
           </div>
         </div>
-        <Button onClick={() => toast.success("Entrée de stock enregistrée")}>
-          <Plus strokeWidth={2.4} />
-          Entrée de stock
-        </Button>
+        <div className="flex gap-2">
+          <NewProduitDialog />
+          <EntreeStockDialog />
+        </div>
       </div>
 
       <div className="mb-[15px] grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">

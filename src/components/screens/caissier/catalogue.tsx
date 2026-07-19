@@ -3,14 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { useMemo, useState } from "react";
-import { Boxes, PackageX, Plus, ShoppingCart, Warehouse } from "lucide-react";
+import { Boxes, PackageX, ShoppingCart, Warehouse } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card } from "@/components/ui/card";
 import { IconTile } from "@/components/ui/icon-tile";
 import { Segmented } from "@/components/ui/segmented";
 import { StatusPill } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
+import { NewMaterielDialog } from "./new-materiel-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   stockStatus,
@@ -20,7 +20,6 @@ import {
 } from "@/lib/api/catalogue";
 import { fetchCatalogue, computeCatalogueStats } from "@/lib/supabase/data/catalogue";
 import { formatFCFA, formatFCFACompact } from "@/lib/format";
-import { toast } from "@/lib/toast";
 
 const FILTERS = [
   { value: "tous", label: "Tous" },
@@ -55,12 +54,7 @@ export function CatalogueScreen() {
             Matériel de sécurité · {stats.references} références
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => toast.info("Nouvelle référence", "Fonction de démonstration")}
-        >
-          <Plus className="size-4" /> Nouvelle référence
-        </Button>
+        <NewMaterielDialog />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
