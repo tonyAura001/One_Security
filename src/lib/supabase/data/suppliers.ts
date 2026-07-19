@@ -59,6 +59,36 @@ export async function fetchSuppliers(): Promise<Supplier[]> {
   return (data as unknown as DbFournisseur[]).map(mapSupplier);
 }
 
+export interface NewSupplierInput {
+  raisonSociale: string;
+  categorie: SupplierCategory;
+  contact: string;
+  telephone: string;
+  statut: SupplierStatus;
+  delaiMoyenJours: number;
+  email?: string;
+}
+
+/** Crée un fournisseur (RLS insert : DG/RF/COMPTABLE). */
+export async function createSupplier(i: NewSupplierInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Fournisseur")
+    .insert({
+      raisonSociale: i.raisonSociale.trim(),
+      categorie: i.categorie,
+      contact: i.contact.trim() || null,
+      telephone: i.telephone.trim() || null,
+      statut: i.statut,
+      delaiMoyenJours: Math.max(0, Math.round(i.delaiMoyenJours)),
+      email: i.email?.trim() || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export interface SupplierStats {
   activeCount: number;
   outstanding: number;

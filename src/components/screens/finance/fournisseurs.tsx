@@ -3,12 +3,11 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Boxes, Clock, FileWarning, Plus, Users } from "lucide-react";
+import { Boxes, Clock, FileWarning, Users } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
 import {
   SUPPLIER_CATEGORY_META,
   SUPPLIER_STATUS_META,
@@ -21,7 +20,7 @@ import {
 import { toneText } from "@/lib/colors";
 import { formatFCFA, formatFCFACompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { toast } from "@/lib/toast";
+import { NewSupplierDialog } from "./new-supplier-dialog";
 
 const columns: ColumnDef<Supplier>[] = [
   {
@@ -105,12 +104,7 @@ export function FournisseursScreen() {
             Équipement, uniformes, carburant, télécom & formation
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => toast.info("Nouveau fournisseur", "Fonction de démonstration")}
-        >
-          <Plus className="size-4" /> Nouveau fournisseur
-        </Button>
+        <NewSupplierDialog />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
