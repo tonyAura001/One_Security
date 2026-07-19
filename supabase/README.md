@@ -48,6 +48,8 @@ create policy "factures_read_finance"
 - [x] Module **fournisseurs** en lecture (RLS Fournisseur+Depense, encours dérivé des dépenses impayées).
 - [x] DG **« Voir en tant que »** tous les rôles (view-as, UI uniquement).
 - [x] Module **clients en écriture** (formulaire Nouveau client, policies insert/update DG/RP).
-- [ ] Poursuivre module par module (lecture puis écriture).
+- [x] Module **fournisseurs** en lecture (encours dérivé des dépenses impayées).
+- [x] Module **prospects** (kanban) lecture + **écriture** (drag persiste le stage).
+- [ ] Poursuivre module par module (recrutement/CM/POS/maintenance/tâches = nouvelles tables à modéliser).
 - [ ] Edge Functions pour la logique non exprimable en table+RLS.
 - [ ] Retrait de `apps/api` une fois tous les modules portés.

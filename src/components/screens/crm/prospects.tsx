@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, Percent, Plus, TrendingUp, Wallet } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -10,11 +11,15 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import {
   getProspects,
-  getProspectStats,
   STAGE_META,
   type PipelineStage,
   type Prospect,
 } from "@/lib/api/prospects";
+import {
+  fetchProspects,
+  updateProspectStage,
+  computeProspectStats,
+} from "@/lib/supabase/data/prospects";
 import { formatFCFA, formatFCFACompact, formatDateFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
@@ -32,18 +37,31 @@ function columnOf(p: Prospect): string {
 }
 
 export function ProspectsScreen() {
+  // Pipeline réel via Supabase (RLS commerce) ; repli démo si accès refusé.
+  const { data, isSuccess } = useQuery({
+    queryKey: ["prospects"],
+    queryFn: fetchProspects,
+  });
   const [prospects, setProspects] = useState<Prospect[]>(() => getProspects());
-  const stats = useMemo(() => getProspectStats(), []);
+  useEffect(() => {
+    if (isSuccess && data.length > 0) setProspects(data);
+  }, [isSuccess, data]);
+
+  const stats = useMemo(() => computeProspectStats(prospects), [prospects]);
+  const live = isSuccess && data.length > 0;
 
   function handleMove(id: string, toColumn: string) {
+    const nextStage: PipelineStage =
+      toColumn === "clos" ? "gagne" : (toColumn as PipelineStage);
     setProspects((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        const nextStage: PipelineStage =
-          toColumn === "clos" ? "gagne" : (toColumn as PipelineStage);
-        return { ...p, stage: nextStage };
-      }),
+      prev.map((p) => (p.id === id ? { ...p, stage: nextStage } : p)),
     );
+    // Persiste le déplacement (write RLS DG/RP) — seulement en données réelles.
+    if (live) {
+      updateProspectStage(id, nextStage).catch(() =>
+        toast.error("Déplacement non enregistré (accès écriture requis)"),
+      );
+    }
   }
 
   return (

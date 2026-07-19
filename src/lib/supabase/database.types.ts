@@ -599,6 +599,10 @@ export type Database = {
           "adresse": string | null;
           "createdAt": string;
           "updatedAt": string;
+          "categorie": string | null;
+          "statut": string;
+          "contact": string | null;
+          "delaiMoyenJours": number;
         };
         Insert: {
           "id": string;
@@ -609,6 +613,10 @@ export type Database = {
           "adresse"?: string | null;
           "createdAt"?: string;
           "updatedAt": string;
+          "categorie"?: string | null;
+          "statut"?: string;
+          "contact"?: string | null;
+          "delaiMoyenJours"?: number;
         };
         Update: {
           "id"?: string;
@@ -619,6 +627,10 @@ export type Database = {
           "adresse"?: string | null;
           "createdAt"?: string;
           "updatedAt"?: string;
+          "categorie"?: string | null;
+          "statut"?: string;
+          "contact"?: string | null;
+          "delaiMoyenJours"?: number;
         };
         Relationships: [];
       };
@@ -808,9 +820,13 @@ export type Database = {
           "chiffreAffairesPotentiel": number | null;
           "createdAt": string;
           "updatedAt": string;
+          "stage": string;
+          "besoin": string | null;
+          "owner": string | null;
+          "ownerInitials": string | null;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "raisonSociale": string;
           "siret"?: string | null;
           "adresse"?: string | null;
@@ -819,7 +835,11 @@ export type Database = {
           "notes"?: string | null;
           "chiffreAffairesPotentiel"?: number | null;
           "createdAt"?: string;
-          "updatedAt": string;
+          "updatedAt"?: string;
+          "stage"?: string;
+          "besoin"?: string | null;
+          "owner"?: string | null;
+          "ownerInitials"?: string | null;
         };
         Update: {
           "id"?: string;
@@ -832,6 +852,10 @@ export type Database = {
           "chiffreAffairesPotentiel"?: number | null;
           "createdAt"?: string;
           "updatedAt"?: string;
+          "stage"?: string;
+          "besoin"?: string | null;
+          "owner"?: string | null;
+          "ownerInitials"?: string | null;
         };
         Relationships: [];
       };
