@@ -1,13 +1,9 @@
 import {
   AlertTriangle,
-  Banknote,
   CheckSquare,
   Database,
   FileClock,
-  HeartPulse,
-  Package,
   ShieldCheck,
-  ShoppingBag,
   Target,
   TrendingUp,
   Wrench,
@@ -52,8 +48,4 @@ export const OPERATIONAL_KPIS: DashboardKpi[] = [
   { icon: FileClock, tone: "warning", value: "—", label: "Contrats expirant < 30 j" },
   { icon: Wrench, tone: "danger", value: "—", label: "Tickets maintenance ouverts" },
   { icon: CheckSquare, tone: "accent", value: "—", label: "Tâches en retard" },
-  { icon: Package, tone: "warning", value: "—", label: "Stock équipement sous seuil" },
-  { icon: Banknote, tone: "success", value: "—", label: "Statut caisse" },
-  { icon: ShoppingBag, tone: "violet", value: "—", unit: "FCFA", label: "CA boutique du jour" },
-  { icon: HeartPulse, tone: "violet", value: "—", unit: "/100", label: "Score santé CRM" },
 ];
