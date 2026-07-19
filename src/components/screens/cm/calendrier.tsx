@@ -2,17 +2,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { Plus } from "lucide-react";
+import { NewPublicationDialog } from "./new-publication-dialog";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { PillVariant } from "@/components/ui/status-pill";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchPublications } from "@/lib/supabase/data/publications";
 import type { Publication, PublicationStatus } from "@/lib/api/types";
 import { formatDateFR } from "@/lib/format";
-import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type Channel = Publication["channel"];
@@ -50,14 +48,9 @@ export function CmCalendrier() {
     <ScreenContainer>
       <div className="mb-4 flex items-center justify-between">
         <div className="text-muted text-[11px] font-bold tracking-[0.7px]">
-          CALENDRIER ÉDITORIAL · JUILLET 2026
+          CALENDRIER ÉDITORIAL
         </div>
-        <Button
-          onClick={() => toast.success("Nouvelle publication programmée")}
-        >
-          <Plus strokeWidth={2.4} />
-          Programmer
-        </Button>
+        <NewPublicationDialog />
       </div>
 
       {orderedPublications.length === 0 && (

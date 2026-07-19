@@ -17,3 +17,31 @@ export async function fetchPublications(): Promise<Publication[]> {
     engagement: p.engagement ?? undefined,
   }));
 }
+
+export interface NewPublicationInput {
+  titre: string;
+  canal: string; // Facebook | LinkedIn | Instagram | Site web
+  contenu?: string;
+  datePublication: string; // yyyy-mm-dd
+  statut: string; // planifie | publie | brouillon
+}
+
+/** Crée une publication (RLS publication_write : DG/RP/RH/MANAGER). */
+export async function createPublication(
+  i: NewPublicationInput,
+): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Publication")
+    .insert({
+      titre: i.titre.trim(),
+      canal: i.canal,
+      contenu: i.contenu?.trim() || null,
+      datePublication: i.datePublication,
+      statut: i.statut,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
