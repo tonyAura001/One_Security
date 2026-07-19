@@ -27,6 +27,10 @@ import {
   updateCandidatureStatut,
   type CandidatureStatut,
 } from "@/lib/supabase/data/recrutement";
+import {
+  NouveauPosteDialog,
+  NouvelleCandidatureDialog,
+} from "./recrutement-dialogs";
 
 const POSTE_STATUT: Record<string, { variant: PillVariant; label: string }> = {
   ouvert: { variant: "success", label: "Ouvert" },
@@ -165,8 +169,11 @@ export function RecrutementScreen() {
       <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[1fr_1.4fr]">
         {/* ── Postes à pourvoir ── */}
         <Card className="flex flex-col gap-2 p-3">
-          <div className="text-muted mb-1 text-[11px] font-bold tracking-[0.6px] uppercase">
-            Postes à pourvoir · {postes.length}
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-muted text-[11px] font-bold tracking-[0.6px] uppercase">
+              Postes à pourvoir · {postes.length}
+            </span>
+            <NouveauPosteDialog />
           </div>
           {postes.map((p) => {
             const active = p.id === activePoste;
@@ -224,8 +231,11 @@ export function RecrutementScreen() {
 
         {/* ── Candidatures du poste ── */}
         <Card className="flex flex-col gap-2 p-3">
-          <div className="text-muted mb-1 text-[11px] font-bold tracking-[0.6px] uppercase">
-            Candidatures · {candidatures.length}
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-muted text-[11px] font-bold tracking-[0.6px] uppercase">
+              Candidatures · {candidatures.length}
+            </span>
+            {activePoste && <NouvelleCandidatureDialog posteId={activePoste} />}
           </div>
           {candidatures.map((c) => {
             const meta = CAND_STATUT[c.statut];

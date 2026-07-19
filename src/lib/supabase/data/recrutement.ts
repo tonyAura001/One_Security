@@ -263,6 +263,64 @@ export async function fetchRecrutementStats(): Promise<RecrutementStats> {
   };
 }
 
+export interface NewPosteInput {
+  titre: string;
+  description: string;
+  lieu: string;
+  typeContrat: string;
+  salaireMin: number | null;
+  salaireMax: number | null;
+}
+
+/** Crée un poste (RLS : DG/RH/MANAGER). */
+export async function createPoste(input: NewPosteInput): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("Poste").insert({
+    titre: input.titre.trim(),
+    description: input.description.trim() || null,
+    lieu: input.lieu.trim() || null,
+    typeContrat: input.typeContrat,
+    salaireMin: input.salaireMin,
+    salaireMax: input.salaireMax,
+    statut: "ouvert",
+  });
+  if (error) throw error;
+}
+
+export interface NewCandidatureInput {
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone: string;
+  messageMotivation: string;
+}
+
+/** Crée un candidat + sa candidature à un poste (RLS : DG/RH/MANAGER). */
+export async function createCandidature(
+  posteId: string,
+  input: NewCandidatureInput,
+): Promise<void> {
+  const supabase = createClient();
+  const { data: cand, error: e1 } = await supabase
+    .from("Candidat")
+    .insert({
+      nom: input.nom.trim(),
+      prenom: input.prenom.trim(),
+      email: input.email.trim() || null,
+      telephone: input.telephone.trim() || null,
+    })
+    .select("id")
+    .single();
+  if (e1) throw e1;
+  const { error: e2 } = await supabase.from("Candidature").insert({
+    posteId,
+    candidatId: (cand as { id: string }).id,
+    statut: "nouveau",
+    messageMotivation: input.messageMotivation.trim() || null,
+  });
+  if (e2) throw e2;
+}
+
 /** Change le statut d'une candidature (RLS : équipe recrutement). */
 export async function updateCandidatureStatut(
   id: string,
