@@ -1,7 +1,6 @@
 import { cache } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { API_BASE_URL } from "@/lib/api/config";
 import type { Role, User } from "@/types";
 
 /**
@@ -39,23 +38,24 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   }
   // ---------------------------------------------------------------------------
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) return null;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      // Toujours frais : le rôle/les permissions ne doivent pas être mis en cache.
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as User;
-  } catch {
-    return null;
-  }
+  // Supabase-native : le profil applicatif (rôle, identité) vient de la table
+  // `User`, lue avec le JWT de l'utilisateur (RLS `users_read_self` : sa propre
+  // fiche). Plus de dépendance à l'API NestJS. Le rôle DB est en MAJUSCULE.
+  const { data: profile } = await supabase
+    .from("User")
+    .select("id, prenom, nom, email, role, telephone, avatarUrl, actif")
+    .eq("id", user.id)
+    .single();
+  if (!profile || !profile.actif) return null;
+  return {
+    id: profile.id,
+    firstName: profile.prenom,
+    lastName: profile.nom,
+    email: profile.email,
+    role: (profile.role as string).toLowerCase() as Role,
+    phone: profile.telephone ?? undefined,
+    avatarUrl: profile.avatarUrl ?? undefined,
+  };
 });
 
 const VALID_ROLES: Role[] = [
