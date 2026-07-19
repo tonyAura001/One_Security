@@ -162,6 +162,54 @@ export async function fetchEntretiens(candidatureId: string): Promise<Entretien[
   });
 }
 
+interface DbAgendaRow {
+  id: string;
+  dateHeure: string;
+  type: string;
+  User: DbRec | DbRec[] | null;
+  Candidature:
+    | {
+        Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
+        Poste: { titre: string } | { titre: string }[] | null;
+      }
+    | {
+        Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
+        Poste: { titre: string } | { titre: string }[] | null;
+      }[]
+    | null;
+}
+
+/**
+ * Agenda des entretiens de l'utilisateur courant (la RLS filtre : le recruteur
+ * ne voit que les siens, Manager/DG voient tout). Mappé sur le type UI Interview.
+ */
+export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Entretien")
+    .select(
+      "id,dateHeure,type,User(prenom,nom),Candidature(Candidat(prenom,nom),Poste(titre))",
+    )
+    .order("dateHeure", { ascending: true });
+  if (error) throw error;
+  return (data as unknown as DbAgendaRow[]).map((r) => {
+    const rec = one(r.User);
+    const ca = one(r.Candidature);
+    const cand = one(ca?.Candidat);
+    const poste = one(ca?.Poste);
+    const dt = new Date(r.dateHeure);
+    return {
+      id: r.id,
+      candidate: cand ? `${cand.prenom} ${cand.nom}` : "—",
+      role: poste?.titre ?? "—",
+      date: r.dateHeure.slice(0, 10),
+      time: dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      interviewer: rec ? `${rec.prenom} ${rec.nom}` : "—",
+      mode: r.type === "telephonique" ? "téléphone" : "présentiel",
+    };
+  });
+}
+
 /** Change le statut d'une candidature (RLS : équipe recrutement). */
 export async function updateCandidatureStatut(
   id: string,

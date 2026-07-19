@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
@@ -9,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
 import { INTERVIEWS } from "@/lib/api/data";
+import { fetchAgenda } from "@/lib/supabase/data/recrutement";
 import type { Interview } from "@/lib/api/types";
 
 interface Criterion {
@@ -52,7 +55,12 @@ function ScoreDots({ score }: { score: number }) {
 }
 
 export function RecruteurEntretiens() {
-  const [selected, setSelected] = useState<Interview>(INTERVIEWS[0]);
+  // Agenda réel via Supabase (RLS : le recruteur ne voit que ses entretiens).
+  const { data, isSuccess } = useQuery({ queryKey: ["agenda"], queryFn: fetchAgenda });
+  const interviews = isSuccess && data.length > 0 ? data : INTERVIEWS;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = interviews.find((i) => i.id === selectedId) ?? interviews[0];
+  if (!selected) return null;
 
   return (
     <ScreenContainer>
@@ -63,13 +71,13 @@ export function RecruteurEntretiens() {
             Entretiens planifiés
           </div>
           <div className="flex flex-col gap-2.5">
-            {INTERVIEWS.map((it) => {
+            {interviews.map((it) => {
               const active = it.id === selected.id;
               return (
                 <button
                   key={it.id}
                   type="button"
-                  onClick={() => setSelected(it)}
+                  onClick={() => setSelectedId(it.id)}
                   className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors ${
                     active
                       ? "border-accent bg-active"
