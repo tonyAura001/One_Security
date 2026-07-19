@@ -8,6 +8,8 @@ import { Button } from "@/aurantir-front-kit";
 import { type ChatLine, type Conversation } from "@/lib/api/messagerie";
 import { cn } from "@/lib/utils";
 import { fetchConversations, sendMessage } from "@/lib/supabase/data/messagerie";
+import { NewCanalDialog } from "./new-canal-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/lib/toast";
 
 export function MessagerieScreen() {
@@ -49,7 +51,25 @@ export function MessagerieScreen() {
     }
   }
 
-  if (!active) return null;
+  if (!active) {
+    return (
+      <ScreenContainer>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Messagerie</h1>
+            <p className="page-subtitle">
+              Échangez avec vos équipes en temps réel
+            </p>
+          </div>
+          <NewCanalDialog />
+        </div>
+        <EmptyState
+          title="Aucun canal"
+          description="Créez un canal pour démarrer les échanges."
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>
@@ -60,6 +80,7 @@ export function MessagerieScreen() {
             Échangez avec vos équipes en temps réel
           </p>
         </div>
+        <NewCanalDialog />
       </div>
 
       <div className="border-surface-border mt-4 grid h-[calc(100vh-260px)] min-h-[440px] grid-cols-1 overflow-hidden rounded-2xl border md:grid-cols-[280px_1fr]">

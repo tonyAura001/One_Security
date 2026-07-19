@@ -26,6 +26,21 @@ export async function fetchConversations(): Promise<Conversation[]> {
     return { id: c.id, name: c.nom, subtitle: c.description ?? "", initials: initials(c.nom), unread: 0, messages };
   });
 }
+/** Crée un canal de discussion (RLS canal_insert : DG/RP/RH/MANAGER). */
+export async function createCanal(
+  nom: string,
+  description?: string,
+): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Canal")
+    .insert({ nom: nom.trim(), description: description?.trim() || null } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export async function sendMessage(canalId: string, text: string): Promise<void> {
   const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
