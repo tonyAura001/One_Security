@@ -25,16 +25,24 @@ import {
 } from "@/lib/supabase/data/documents";
 import {
   DOC_TYPE_LABEL,
+  type CommuniqueData,
   type DevisData,
   type DevisLigne,
   type DocRecord,
+  type DocumentData,
   type DocumentType,
   type FactureData,
   type FactureLigne,
+  type FicheData,
+  type RapportData,
 } from "@/lib/documents/types";
 import { ONE_SECURITY } from "@/lib/one-security";
 import { DevisTemplate } from "@/components/documents/devis-template";
 import { FactureTemplate } from "@/components/documents/facture-template";
+import { RapportTemplate } from "@/components/documents/rapport-template";
+import { CommuniqueTemplate } from "@/components/documents/communique-template";
+import { FicheTemplate } from "@/components/documents/fiche-template";
+import { RichTextEditor } from "@/components/documents/rich-text-editor";
 
 const field =
   "w-full rounded-[9px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
@@ -70,13 +78,65 @@ function emptyFacture(): FactureData {
   };
 }
 
+const CONSIGNES_DEFAUT = `<ul>
+<li><strong>Assurer l'événement du début à la fin :</strong> présence obligatoire et vigilance continue pendant toute la durée de la mission, sans aucune interruption.</li>
+<li><strong>Habillement correct :</strong> port de la tenue de travail réglementaire de One Security, complète, propre et portée avec fierté.</li>
+<li><strong>Respecter les ordres :</strong> obéissance totale aux ordres de la hiérarchie et des superviseurs sur le terrain.</li>
+<li><strong>Ne pas abandonner son poste :</strong> interdiction absolue de quitter son secteur sous aucun prétexte.</li>
+<li><strong>Suivre les instructions :</strong> application rigoureuse des consignes de sectorisation du site.</li>
+<li><strong>Aucune décision personnelle :</strong> interdiction de prendre des initiatives ou de modifier son service sans permission du responsable de mission.</li>
+</ul>`;
+
+function emptyRapport(): RapportData {
+  return {
+    destinataire: "",
+    date: today(),
+    objet: "",
+    corps:
+      "<h2>1. Diagnostic du site (Les Risques)</h2><p></p><h2>2. Dispositif sécuritaire proposé</h2><p></p><h2>Conclusion</h2><p></p>",
+  };
+}
+function emptyCommunique(): CommuniqueData {
+  return {
+    objet: "",
+    date: today(),
+    corps: "<p>Chers clients, partenaires et collaborateurs,</p><p></p>",
+  };
+}
+function emptyFiche(): FicheData {
+  return {
+    titreEvent: "",
+    date: today(),
+    effectif: "50 agents de sécurité",
+    remuneration: "20 000 F CFA par agent",
+    consignes: CONSIGNES_DEFAUT,
+    nomAgent: "",
+    cni: "",
+  };
+}
+
+function emptyData(type: DocumentType): DocumentData {
+  switch (type) {
+    case "devis":
+      return emptyDevis();
+    case "facture_proforma":
+      return emptyFacture();
+    case "rapport":
+      return emptyRapport();
+    case "communique":
+      return emptyCommunique();
+    case "fiche_engagement":
+      return emptyFiche();
+  }
+}
+
 interface Draft {
   id: string | null;
   type: DocumentType;
   titre: string;
   numero: string;
   statut: string;
-  donnees: DevisData | FactureData;
+  donnees: DocumentData;
 }
 
 export function DocumentsScreen() {
@@ -84,31 +144,34 @@ export function DocumentsScreen() {
   const { data } = useQuery({ queryKey: ["documents"], queryFn: fetchDocuments });
   const docs = data ?? [];
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [newType, setNewType] = useState<DocumentType>("devis");
 
   function startNew(type: DocumentType) {
     const year = new Date().getFullYear();
+    const numero =
+      type === "devis"
+        ? `${seq()}/${year}`
+        : type === "facture_proforma"
+          ? `${seq()}/DK-SECURITY/${year}`
+          : "";
     setDraft({
       id: null,
       type,
       titre: `${DOC_TYPE_LABEL[type]} — nouveau`,
-      numero: type === "devis" ? `${seq()}/${year}` : `${seq()}/DK-SECURITY/${year}`,
+      numero,
       statut: "brouillon",
-      donnees: type === "devis" ? emptyDevis() : emptyFacture(),
+      donnees: emptyData(type),
     });
   }
 
   function edit(d: DocRecord) {
-    if (d.type !== "devis" && d.type !== "facture_proforma") {
-      toast.info("Ce type de document arrive à l'incrément suivant.");
-      return;
-    }
     setDraft({
       id: d.id,
       type: d.type,
       titre: d.titre,
       numero: d.numero ?? "",
       statut: d.statut,
-      donnees: d.donnees as DevisData | FactureData,
+      donnees: d.donnees,
     });
   }
 
@@ -174,12 +237,20 @@ export function DocumentsScreen() {
             Devis, factures et documents officiels — charte One Security
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => startNew("devis")}>
-            <Plus className="size-4" /> Nouveau devis
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => startNew("facture_proforma")}>
-            <Plus className="size-4" /> Facture proforma
+        <div className="flex items-center gap-2">
+          <select
+            className={`${field} max-w-[190px]`}
+            value={newType}
+            onChange={(e) => setNewType(e.target.value as DocumentType)}
+          >
+            {(Object.keys(DOC_TYPE_LABEL) as DocumentType[]).map((t) => (
+              <option key={t} value={t}>
+                {DOC_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+          <Button size="sm" onClick={() => startNew(newType)}>
+            <Plus className="size-4" /> Nouveau
           </Button>
         </div>
       </div>
@@ -249,12 +320,16 @@ function DocumentEditor({
   onBack: () => void;
   onSave: () => void;
 }) {
+  const date = (draft.donnees as { date?: string }).date ?? "";
   const dateLabel = useMemo(
-    () => formatDateFR(draft.donnees.date, "dd/MM/yyyy"),
-    [draft.donnees.date],
+    () =>
+      draft.type === "devis" || draft.type === "facture_proforma"
+        ? formatDateFR(date, "dd/MM/yyyy")
+        : formatDateFR(date, "d MMMM yyyy"),
+    [date, draft.type],
   );
 
-  function setDonnees(donnees: DevisData | FactureData) {
+  function setDonnees(donnees: DocumentData) {
     setDraft({ ...draft, donnees });
   }
 
@@ -296,48 +371,32 @@ function DocumentEditor({
             {DOC_TYPE_LABEL[draft.type]}
           </div>
           <div className="flex flex-col gap-3">
-            <div>
-              <label className={label}>Numéro</label>
-              <input
-                className={field}
-                value={draft.numero}
-                onChange={(e) => setDraft({ ...draft, numero: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+            {(draft.type === "devis" ||
+              draft.type === "facture_proforma") && (
               <div>
-                <label className={label}>Client</label>
+                <label className={label}>Numéro</label>
                 <input
                   className={field}
-                  value={draft.donnees.client}
-                  onChange={(e) =>
-                    setDonnees({ ...draft.donnees, client: e.target.value })
-                  }
+                  value={draft.numero}
+                  onChange={(e) => setDraft({ ...draft, numero: e.target.value })}
                 />
               </div>
-              <div>
-                <label className={label}>Date</label>
-                <input
-                  type="date"
-                  className={field}
-                  value={draft.donnees.date}
-                  onChange={(e) =>
-                    setDonnees({ ...draft.donnees, date: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            )}
 
-            {draft.type === "devis" ? (
-              <DevisFields
-                data={draft.donnees as DevisData}
-                onChange={setDonnees}
-              />
-            ) : (
-              <FactureFields
-                data={draft.donnees as FactureData}
-                onChange={setDonnees}
-              />
+            {draft.type === "devis" && (
+              <DevisFields data={draft.donnees as DevisData} onChange={setDonnees} />
+            )}
+            {draft.type === "facture_proforma" && (
+              <FactureFields data={draft.donnees as FactureData} onChange={setDonnees} />
+            )}
+            {draft.type === "rapport" && (
+              <RapportFields data={draft.donnees as RapportData} onChange={setDonnees} />
+            )}
+            {draft.type === "communique" && (
+              <CommuniqueFields data={draft.donnees as CommuniqueData} onChange={setDonnees} />
+            )}
+            {draft.type === "fiche_engagement" && (
+              <FicheFields data={draft.donnees as FicheData} onChange={setDonnees} />
             )}
           </div>
         </Card>
@@ -348,16 +407,35 @@ function DocumentEditor({
             id="doc-print"
             className="origin-top scale-[0.62] sm:scale-75 lg:scale-90 xl:scale-100"
           >
-            {draft.type === "devis" ? (
+            {draft.type === "devis" && (
               <DevisTemplate
                 data={draft.donnees as DevisData}
                 numero={draft.numero}
                 dateLabel={dateLabel}
               />
-            ) : (
+            )}
+            {draft.type === "facture_proforma" && (
               <FactureTemplate
                 data={draft.donnees as FactureData}
                 numero={draft.numero}
+                dateLabel={dateLabel}
+              />
+            )}
+            {draft.type === "rapport" && (
+              <RapportTemplate
+                data={draft.donnees as RapportData}
+                dateLabel={dateLabel}
+              />
+            )}
+            {draft.type === "communique" && (
+              <CommuniqueTemplate
+                data={draft.donnees as CommuniqueData}
+                dateLabel={dateLabel}
+              />
+            )}
+            {draft.type === "fiche_engagement" && (
+              <FicheTemplate
+                data={draft.donnees as FicheData}
                 dateLabel={dateLabel}
               />
             )}
@@ -392,6 +470,25 @@ function DevisFields({
   }
   return (
     <>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Client</label>
+          <input
+            className={field}
+            value={data.client}
+            onChange={(e) => onChange({ ...data, client: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>Date</label>
+          <input
+            type="date"
+            className={field}
+            value={data.date}
+            onChange={(e) => onChange({ ...data, date: e.target.value })}
+          />
+        </div>
+      </div>
       <div>
         <label className={label}>Lieu</label>
         <input
@@ -478,6 +575,25 @@ function FactureFields({
   }
   return (
     <>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Client</label>
+          <input
+            className={field}
+            value={data.client}
+            onChange={(e) => onChange({ ...data, client: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>Date</label>
+          <input
+            type="date"
+            className={field}
+            value={data.date}
+            onChange={(e) => onChange({ ...data, date: e.target.value })}
+          />
+        </div>
+      </div>
       <div>
         <label className={label}>Taux TVA (%)</label>
         <input
@@ -561,6 +677,167 @@ function FactureFields({
           onChange={(e) =>
             onChange({ ...data, options: e.target.value.split("\n") })
           }
+        />
+      </div>
+    </>
+  );
+}
+
+function RapportFields({
+  data,
+  onChange,
+}: {
+  data: RapportData;
+  onChange: (d: RapportData) => void;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>À l'attention de</label>
+          <input
+            className={field}
+            value={data.destinataire}
+            onChange={(e) => onChange({ ...data, destinataire: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>Date</label>
+          <input
+            type="date"
+            className={field}
+            value={data.date}
+            onChange={(e) => onChange({ ...data, date: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <label className={label}>Objet</label>
+        <input
+          className={field}
+          value={data.objet}
+          onChange={(e) => onChange({ ...data, objet: e.target.value })}
+          placeholder="Rapport de sécurité – …"
+        />
+      </div>
+      <div>
+        <label className={label}>Corps du rapport</label>
+        <RichTextEditor
+          value={data.corps}
+          onChange={(corps) => onChange({ ...data, corps })}
+        />
+      </div>
+    </>
+  );
+}
+
+function CommuniqueFields({
+  data,
+  onChange,
+}: {
+  data: CommuniqueData;
+  onChange: (d: CommuniqueData) => void;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Objet</label>
+          <input
+            className={field}
+            value={data.objet}
+            onChange={(e) => onChange({ ...data, objet: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>Date</label>
+          <input
+            type="date"
+            className={field}
+            value={data.date}
+            onChange={(e) => onChange({ ...data, date: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <label className={label}>Corps du communiqué</label>
+        <RichTextEditor
+          value={data.corps}
+          onChange={(corps) => onChange({ ...data, corps })}
+        />
+      </div>
+    </>
+  );
+}
+
+function FicheFields({
+  data,
+  onChange,
+}: {
+  data: FicheData;
+  onChange: (d: FicheData) => void;
+}) {
+  return (
+    <>
+      <div>
+        <label className={label}>Événement</label>
+        <input
+          className={field}
+          value={data.titreEvent}
+          onChange={(e) => onChange({ ...data, titreEvent: e.target.value })}
+          placeholder="Sécurisation de l'événement …"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Effectif</label>
+          <input
+            className={field}
+            value={data.effectif}
+            onChange={(e) => onChange({ ...data, effectif: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>Rémunération</label>
+          <input
+            className={field}
+            value={data.remuneration}
+            onChange={(e) => onChange({ ...data, remuneration: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Nom de l'agent</label>
+          <input
+            className={field}
+            value={data.nomAgent}
+            onChange={(e) => onChange({ ...data, nomAgent: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={label}>CNI</label>
+          <input
+            className={field}
+            value={data.cni}
+            onChange={(e) => onChange({ ...data, cni: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <label className={label}>Date</label>
+        <input
+          type="date"
+          className={field}
+          value={data.date}
+          onChange={(e) => onChange({ ...data, date: e.target.value })}
+        />
+      </div>
+      <div>
+        <label className={label}>Consignes</label>
+        <RichTextEditor
+          value={data.consignes}
+          onChange={(consignes) => onChange({ ...data, consignes })}
         />
       </div>
     </>

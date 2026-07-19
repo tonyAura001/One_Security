@@ -48,9 +48,38 @@ export interface FactureData {
   options: string[];
 }
 
+/** Rapport de sécurité (corps en HTML rich-text). */
+export interface RapportData {
+  destinataire: string;
+  date: string;
+  objet: string;
+  corps: string; // HTML
+}
+
+/** Communiqué officiel (corps en HTML). */
+export interface CommuniqueData {
+  objet: string;
+  date: string;
+  corps: string; // HTML
+}
+
+/** Fiche d'engagement individuelle de mission. */
+export interface FicheData {
+  titreEvent: string;
+  date: string;
+  effectif: string;
+  remuneration: string;
+  consignes: string; // HTML (préformaté par défaut)
+  nomAgent: string;
+  cni: string;
+}
+
 export type DocumentData =
   | DevisData
   | FactureData
+  | RapportData
+  | CommuniqueData
+  | FicheData
   | Record<string, unknown>;
 
 export interface DocRecord {
