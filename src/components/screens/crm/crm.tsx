@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Building2, MapPin, Phone, User } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { NewClientDialog } from "@/components/screens/crm/new-client-dialog";
+import { NewSiteDialog } from "@/components/screens/crm/new-site-dialog";
 import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
@@ -224,17 +225,20 @@ function ClientDetail({ client }: { client: Client }) {
         </div>
       </div>
 
-      {client.phone && client.phone !== "—" ? (
-        <Button size="sm" className="w-full" asChild>
-          <a href={`tel:${client.phone.replace(/\s/g, "")}`}>
-            Appeler {client.contact}
-          </a>
-        </Button>
-      ) : (
-        <Button size="sm" className="w-full" variant="outline" disabled>
-          Aucun contact renseigné
-        </Button>
-      )}
+      <div className="flex flex-col gap-2">
+        {client.phone && client.phone !== "—" ? (
+          <Button size="sm" className="w-full" asChild>
+            <a href={`tel:${client.phone.replace(/\s/g, "")}`}>
+              Appeler {client.contact}
+            </a>
+          </Button>
+        ) : (
+          <Button size="sm" className="w-full" variant="outline" disabled>
+            Aucun contact renseigné
+          </Button>
+        )}
+        <NewSiteDialog clientId={client.id} clientName={client.name} />
+      </div>
     </Card>
   );
 }
