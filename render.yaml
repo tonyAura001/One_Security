@@ -1,18 +1,18 @@
 # Blueprint Render — API PilotePME (NestJS + Prisma, conteneur Docker).
 # Le service ne construit QUE apps/api (monorepo ; le front est déployé sur Vercel).
+# NB spec Render : dockerfilePath et dockerContext sont relatifs à la RACINE du repo.
 # Les secrets sont en `sync: false` → à saisir dans le dashboard Render, jamais ici.
 services:
   - type: web
     name: pilotepme-api
     runtime: docker
-    rootDir: apps/api
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
     region: frankfurt
     plan: free
     branch: main
     healthCheckPath: /api/health
-    autoDeploy: true
+    autoDeployTrigger: commit
     envVars:
       # ── Base de données (Supabase) ──
       # DATABASE_URL : utiliser le **Session pooler** (port 5432, IPv4) — il
