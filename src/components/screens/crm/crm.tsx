@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatFCFACompact } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchClients } from "@/lib/supabase/data/clients";
@@ -46,11 +45,10 @@ function initials(name: string): string {
 
 export function CrmClients() {
   // Données réelles via Supabase (RLS par rôle).
-  const { data, isSuccess } = useQuery({
+  const { data } = useQuery({
     queryKey: ["clients"],
     queryFn: fetchClients,
   });
-  const live = isSuccess;
   const clients: Client[] = data ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,7 +75,6 @@ export function CrmClients() {
       <div className="mb-3.5 flex items-center justify-between">
         <div className="text-muted text-[11px] font-bold tracking-[0.7px] uppercase">
           Portefeuille clients · {activeCount} comptes actifs
-          {live ? " · Supabase" : " · démo"}
         </div>
         <NewClientDialog />
       </div>
@@ -227,23 +224,17 @@ function ClientDetail({ client }: { client: Client }) {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          className="flex-1"
-          onClick={() => toast.success(`Appel de ${client.contact} lancé`)}
-        >
-          Contacter
+      {client.phone && client.phone !== "—" ? (
+        <Button size="sm" className="w-full" asChild>
+          <a href={`tel:${client.phone.replace(/\s/g, "")}`}>
+            Appeler {client.contact}
+          </a>
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex-1"
-          onClick={() => toast.info(`Fiche 360° de ${client.name} ouverte`)}
-        >
-          Voir la fiche
+      ) : (
+        <Button size="sm" className="w-full" variant="outline" disabled>
+          Aucun contact renseigné
         </Button>
-      </div>
+      )}
     </Card>
   );
 }

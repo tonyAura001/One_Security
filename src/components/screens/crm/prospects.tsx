@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Percent, Plus, TrendingUp, Wallet } from "lucide-react";
+import { CalendarClock, Percent, TrendingUp, Wallet } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { KanbanBoard, type KanbanColumn } from "@/components/ui/kanban-board";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
+import { NewProspectDialog } from "./new-prospect-dialog";
 import {
   STAGE_META,
   type PipelineStage,
@@ -72,12 +72,7 @@ export function ProspectsScreen() {
             Pipeline commercial · glissez une carte pour la faire avancer
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => toast.info("Nouveau prospect", "Fonction de démonstration")}
-        >
-          <Plus className="size-4" /> Nouveau prospect
-        </Button>
+        <NewProspectDialog />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">

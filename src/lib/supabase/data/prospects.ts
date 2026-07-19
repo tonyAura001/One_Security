@@ -63,6 +63,42 @@ export async function fetchProspects(): Promise<Prospect[]> {
   return (data as unknown as DbProspect[]).map(mapProspect);
 }
 
+export interface NewProspectInput {
+  raisonSociale: string;
+  besoin?: string;
+  chiffreAffairesPotentiel?: number;
+  owner?: string;
+  stage: PipelineStage;
+}
+
+/** Crée un prospect (RLS insert : DG/RP/MANAGER). */
+export async function createProspect(i: NewProspectInput): Promise<void> {
+  const supabase = createClient();
+  const ownerInitials = i.owner
+    ? i.owner
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+    : null;
+  const { data, error } = await supabase
+    .from("Prospect")
+    .insert({
+      raisonSociale: i.raisonSociale.trim(),
+      besoin: i.besoin?.trim() || null,
+      chiffreAffairesPotentiel: i.chiffreAffairesPotentiel ?? null,
+      owner: i.owner?.trim() || null,
+      ownerInitials,
+      stage: i.stage,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 /** Persiste le changement de stage (drag & drop du kanban). RLS : DG/RP. */
 export async function updateProspectStage(
   id: string,
