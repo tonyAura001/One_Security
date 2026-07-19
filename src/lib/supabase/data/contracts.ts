@@ -66,3 +66,43 @@ export async function fetchContracts(): Promise<Contract[]> {
   if (error) throw error;
   return (data as unknown as DbContrat[]).map(mapContract);
 }
+
+export interface NewContractInput {
+  clientId: string;
+  siteId: string;
+  type: string; // enum ContratType (PRESTATION, MISE_A_DISPOSITION, PONCTUEL)
+  montantHT: number;
+  tauxTVA: number;
+  frequenceFacturation: string; // enum FrequenceFacturation
+  dateSignature: string; // yyyy-mm-dd
+  dateDebut: string;
+  dateFin?: string | null;
+  description?: string | null;
+}
+
+/** Crée un contrat de prestation (RLS insert : DG/RP/RF). */
+export async function createContract(i: NewContractInput): Promise<void> {
+  const supabase = createClient();
+  const numero = `CTR-${i.dateDebut.slice(0, 4)}-${Date.now()
+    .toString()
+    .slice(-6)}`;
+  const { data, error } = await supabase
+    .from("Contrat")
+    .insert({
+      numero,
+      clientId: i.clientId,
+      siteId: i.siteId,
+      type: i.type,
+      montantHT: Math.round(i.montantHT),
+      tauxTVA: i.tauxTVA,
+      frequenceFacturation: i.frequenceFacturation,
+      dateSignature: i.dateSignature,
+      dateDebut: i.dateDebut,
+      dateFin: i.dateFin || null,
+      description: i.description?.trim() || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}

@@ -51,3 +51,35 @@ export async function fetchQuotes(): Promise<Quote[]> {
   if (error) throw error;
   return (data as unknown as DbDevis[]).map(mapQuote);
 }
+
+export interface NewQuoteInput {
+  prospectId?: string | null;
+  totalHT: number;
+  tauxTVA: number; // %
+  statut: string; // enum StatutDevis
+  dateEnvoi?: string | null;
+}
+
+/** Crée un devis (RLS insert : DG/RP/MANAGER). */
+export async function createQuote(i: NewQuoteInput): Promise<void> {
+  const supabase = createClient();
+  const totalHT = Math.round(i.totalHT);
+  const totalTTC = totalHT + Math.round((totalHT * i.tauxTVA) / 100);
+  const numero = `DEV-${new Date().getFullYear()}-${Date.now()
+    .toString()
+    .slice(-6)}`;
+  const { data, error } = await supabase
+    .from("Devis")
+    .insert({
+      numero,
+      prospectId: i.prospectId || null,
+      totalHT,
+      totalTTC,
+      statut: i.statut,
+      dateEnvoi: i.dateEnvoi || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}

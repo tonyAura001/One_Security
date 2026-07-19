@@ -19,7 +19,6 @@ import {
   Building2,
   Download,
   Landmark,
-  Plus,
   Smartphone,
   Wallet,
 } from "lucide-react";
@@ -46,6 +45,7 @@ import { formatFCFA, formatFCFACompact, formatDateFR } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { NewMovementDialog } from "./new-movement-dialog";
 
 const ACCOUNT_ICON = {
   bank: Landmark,
@@ -161,12 +161,7 @@ export function TresorerieScreen() {
           >
             <Download className="size-4" /> Exporter
           </Button>
-          <Button
-            size="sm"
-            onClick={() => toast.info("Nouveau mouvement", "Fonction de démonstration")}
-          >
-            <Plus className="size-4" /> Mouvement
-          </Button>
+          <NewMovementDialog />
         </div>
       </div>
 

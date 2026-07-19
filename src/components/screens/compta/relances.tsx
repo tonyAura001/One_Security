@@ -1,20 +1,29 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { formatNumberFR, formatFCFA } from "@/lib/format";
+import { formatNumberFR } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fetchRelances } from "@/lib/supabase/data/relances";
+import { sendRelance } from "@/lib/supabase/data/invoices";
 import type { Relance } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText } from "@/lib/colors";
 
 type Stage = Relance["stage"];
+
+const STAGE_NIVEAU: Record<Stage, number> = {
+  "J+1": 1,
+  "J+7": 2,
+  "J+15": 3,
+  "J+30": 4,
+  "J+45": 5,
+};
 
 const STAGE_META: Record<
   Stage,
@@ -47,6 +56,24 @@ export function ComptaRelances() {
     queryFn: fetchRelances,
   });
   const relances = data ?? [];
+
+  const qc = useQueryClient();
+  const relanceMut = useMutation({
+    mutationFn: (v: { id: string; niveau: number; client: string }) =>
+      sendRelance(v.id, v.niveau),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["relances"] });
+      toast.success(`Relance enregistrée — ${v.client}`);
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level security|policy|permission/i.test(msg)
+          ? "Accès refusé : seuls DG/RF/Comptable peuvent relancer."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
 
   const totalLate = relances.reduce((sum, r) => sum + r.amount, 0);
   const noticeCount = relances.filter((r) => r.stage === "J+45").length;
@@ -176,10 +203,13 @@ export function ComptaRelances() {
                           ? "bg-danger text-white hover:brightness-110"
                           : undefined
                       }
+                      disabled={relanceMut.isPending}
                       onClick={() =>
-                        toast.success(
-                          `Relance envoyée à ${r.client} — ${formatFCFA(r.amount)}`,
-                        )
+                        relanceMut.mutate({
+                          id: r.id,
+                          niveau: STAGE_NIVEAU[r.stage],
+                          client: r.client,
+                        })
                       }
                     >
                       Relancer

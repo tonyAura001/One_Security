@@ -3,19 +3,20 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { AlertTriangle, Banknote, Clock, Plus, Target } from "lucide-react";
+import { AlertTriangle, Banknote, Clock, Target } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Segmented } from "@/components/ui/segmented";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { DataTable } from "@/components/ui/data-table";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/lib/toast";
 import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
 import { fetchInvoices } from "@/lib/supabase/data/invoices";
 import { fetchContracts } from "@/lib/supabase/data/contracts";
 import { fetchQuotes } from "@/lib/supabase/data/quotes";
+import { NewInvoiceDialog } from "./new-invoice-dialog";
+import { NewQuoteDialog } from "./new-quote-dialog";
+import { NewContractDialog } from "./new-contract-dialog";
 import type {
   Contract,
   ContractStatus,
@@ -278,13 +279,9 @@ export function FinanceFacturation() {
               { value: "contrats", label: "Contrats" },
             ]}
           />
-          <Button
-            size="sm"
-            onClick={() => toast.success(`« ${meta.cta} » — formulaire ouvert`)}
-          >
-            <Plus className="size-3.5" strokeWidth={2.4} />
-            {meta.cta}
-          </Button>
+          {tab === "factures" && <NewInvoiceDialog />}
+          {tab === "devis" && <NewQuoteDialog />}
+          {tab === "contrats" && <NewContractDialog />}
         </div>
 
         {tab === "factures" && (

@@ -117,6 +117,64 @@ export async function fetchMovements(): Promise<Movement[]> {
   return movs.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+export interface NewEncaissementInput {
+  factureId: string;
+  compteBancaireId: string;
+  montant: number;
+  dateEncaissement: string; // yyyy-mm-dd
+  reference?: string;
+}
+
+/** Crée un encaissement (RLS insert : DG/RF/COMPTABLE). */
+export async function createEncaissement(
+  i: NewEncaissementInput,
+): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Encaissement")
+    .insert({
+      factureId: i.factureId,
+      compteBancaireId: i.compteBancaireId,
+      montant: Math.round(i.montant),
+      dateEncaissement: i.dateEncaissement,
+      reference: i.reference?.trim() || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
+export interface NewDepenseInput {
+  objet: string;
+  montantHT: number;
+  montantTVA: number;
+  categorie: string; // enum CategorieDepense
+  dateEngagement: string; // yyyy-mm-dd
+  datePaiement?: string | null;
+  compteBancaireId?: string | null;
+}
+
+/** Crée une dépense (RLS insert : DG/RF/COMPTABLE). */
+export async function createDepense(i: NewDepenseInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Depense")
+    .insert({
+      objet: i.objet.trim(),
+      montantHT: Math.round(i.montantHT),
+      montantTVA: Math.round(i.montantTVA),
+      categorie: i.categorie,
+      dateEngagement: i.dateEngagement,
+      datePaiement: i.datePaiement || null,
+      compteBancaireId: i.compteBancaireId || null,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
 export function computeTreasuryStats(
   accounts: Account[],
   movements: Movement[],
