@@ -44,8 +44,6 @@ export type ScreenKey =
   | "stock"
   | "recus"
   | "cloture"
-  | "entreprises"
-  | "abonnements"
   | "membres"
   | "tresorerie"
   | "contrats"
@@ -655,8 +653,6 @@ export const SCREEN_META: Record<
   stock: { crumb: "Boutique", title: "Gestion du stock" },
   recus: { crumb: "Boutique", title: "Reçus" },
   cloture: { crumb: "Boutique", title: "Clôture journalière" },
-  entreprises: { crumb: "Plateforme", title: "Entreprises clientes" },
-  abonnements: { crumb: "Plateforme", title: "Abonnements & MRR" },
   membres: { crumb: "Administration", title: "Membres & habilitations" },
   tresorerie: { crumb: "Finance", title: "Trésorerie" },
   contrats: { crumb: "Juridique", title: "Contrats de prestation" },

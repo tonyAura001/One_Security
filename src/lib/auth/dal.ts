@@ -73,8 +73,8 @@ const VALID_ROLES: Role[] = [
 
 /**
  * Construit le `User` applicatif à partir d'un utilisateur Supabase (mode démo).
- * Le rôle et le tenant sont lus dans `app_metadata` (posés à la création via
- * l'admin API) ; l'identité dans `user_metadata`. Rôle inconnu → `agent`
+ * Le rôle est lu dans `app_metadata` (posé à la création via l'admin API) ;
+ * l'identité dans `user_metadata`. Rôle inconnu → `agent`
  * (le moins privilégié), défense en profondeur.
  */
 function mapSupabaseUser(user: SupabaseUser): User {
@@ -89,7 +89,6 @@ function mapSupabaseUser(user: SupabaseUser): User {
     lastName: meta.lastName ?? "",
     email,
     role,
-    companyId: app.companyId ?? "c_demo",
     phone: meta.phone,
     avatarUrl: meta.avatarUrl,
   };

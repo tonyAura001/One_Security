@@ -20,8 +20,6 @@ export interface User {
   lastName: string;
   email: string;
   role: Role;
-  /** Identifiant de l'entreprise (tenant). */
-  companyId: string;
   phone?: string;
   avatarUrl?: string;
 }
