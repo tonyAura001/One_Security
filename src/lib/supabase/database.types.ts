@@ -1060,6 +1060,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Produit": {
+        Row: {
+          "id": string;
+          "nom": string;
+          "categorie": string;
+          "prix": number;
+          "stock": number;
+          "seuilAlerte": number;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "nom": string;
+          "categorie"?: string;
+          "prix"?: number;
+          "stock"?: number;
+          "seuilAlerte"?: number;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "nom"?: string;
+          "categorie"?: string;
+          "prix"?: number;
+          "stock"?: number;
+          "seuilAlerte"?: number;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "Prospect": {
         Row: {
           "id": string;
@@ -1309,6 +1342,39 @@ export type Database = {
           "equipement"?: string | null;
           "createdAt"?: string;
           "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
+      "TicketCaisse": {
+        Row: {
+          "id": string;
+          "ref": string;
+          "dateHeure": string;
+          "nbArticles": number;
+          "total": number;
+          "moyenPaiement": string;
+          "caissierId": string | null;
+          "createdAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "ref": string;
+          "dateHeure"?: string;
+          "nbArticles"?: number;
+          "total"?: number;
+          "moyenPaiement"?: string;
+          "caissierId"?: string | null;
+          "createdAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "ref"?: string;
+          "dateHeure"?: string;
+          "nbArticles"?: number;
+          "total"?: number;
+          "moyenPaiement"?: string;
+          "caissierId"?: string | null;
+          "createdAt"?: string;
         };
         Relationships: [];
       };

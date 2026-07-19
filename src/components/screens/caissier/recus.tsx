@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Clock, Printer, Receipt as ReceiptIcon } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { RECEIPTS } from "@/lib/api/data";
+import { fetchReceipts } from "@/lib/supabase/data/caisse";
 import type { Receipt } from "@/lib/api/types";
 import { formatFCFA, formatNumberFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -20,11 +22,13 @@ const METHOD_VARIANT: Record<Receipt["method"], PillVariant> = {
 };
 
 export function CaissierRecus() {
-  const [selectedId, setSelectedId] = useState<string>(RECEIPTS[0]?.id ?? "");
+  const { data, isSuccess } = useQuery({ queryKey: ["receipts"], queryFn: fetchReceipts });
+  const receipts = isSuccess && data.length > 0 ? data : RECEIPTS;
+  const [selectedId, setSelectedId] = useState<string>("");
   const selected =
-    RECEIPTS.find((r) => r.id === selectedId) ?? RECEIPTS[0] ?? null;
+    receipts.find((r) => r.id === selectedId) ?? receipts[0] ?? null;
 
-  const totalDay = RECEIPTS.reduce((sum, r) => sum + r.total, 0);
+  const totalDay = receipts.reduce((sum, r) => sum + r.total, 0);
 
   return (
     <ScreenContainer>
@@ -35,7 +39,7 @@ export function CaissierRecus() {
               Reçus émis — aujourd&apos;hui
             </div>
             <span className="text-muted text-[12px] font-bold">
-              {formatNumberFR(RECEIPTS.length)} reçus · {formatFCFA(totalDay)}
+              {formatNumberFR(receipts.length)} reçus · {formatFCFA(totalDay)}
             </span>
           </div>
 
@@ -47,7 +51,7 @@ export function CaissierRecus() {
             <div className="w-[64px] text-right">Heure</div>
           </div>
 
-          {RECEIPTS.map((r) => {
+          {receipts.map((r) => {
             const active = r.id === selected?.id;
             return (
               <button

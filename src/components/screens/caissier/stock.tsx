@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangle, Boxes, PackageX, Plus, Wallet } from "lucide-react";
@@ -9,6 +11,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { PRODUCTS } from "@/lib/api/data";
+import { fetchProduits } from "@/lib/supabase/data/caisse";
 import type { Product } from "@/lib/api/types";
 import { formatFCFACompact, formatNumberFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -85,8 +88,10 @@ const columns: ColumnDef<StockRow>[] = [
 ];
 
 export function CaissierStock() {
+  const { data, isSuccess } = useQuery({ queryKey: ["produits"], queryFn: fetchProduits });
+  const products = isSuccess && data.length > 0 ? data : PRODUCTS;
   const rows = useMemo<StockRow[]>(
-    () => PRODUCTS.map((p) => ({ ...p, state: stockState(p) })),
+    () => products.map((p) => ({ ...p, state: stockState(p) })),
     [],
   );
 
