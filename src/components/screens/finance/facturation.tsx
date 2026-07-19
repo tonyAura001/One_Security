@@ -16,6 +16,7 @@ import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
 import { CONTRACTS, INVOICES, QUOTES } from "@/lib/api/data";
 import { fetchInvoices } from "@/lib/supabase/data/invoices";
 import { fetchContracts } from "@/lib/supabase/data/contracts";
+import { fetchQuotes } from "@/lib/supabase/data/quotes";
 import type {
   Contract,
   ContractStatus,
@@ -214,6 +215,13 @@ export function FinanceFacturation() {
       ? contractsQuery.data
       : CONTRACTS;
 
+  // Devis réels via Supabase (RLS) ; repli démo si accès refusé.
+  const quotesQuery = useQuery({ queryKey: ["quotes"], queryFn: fetchQuotes });
+  const quotes =
+    quotesQuery.isSuccess && quotesQuery.data.length > 0
+      ? quotesQuery.data
+      : QUOTES;
+
   const paid = invoices.filter((i) => i.status === "payee");
   const sent = invoices.filter((i) => i.status === "envoyee");
   const late = invoices.filter((i) => i.status === "retard");
@@ -298,7 +306,7 @@ export function FinanceFacturation() {
         {tab === "devis" && (
           <DataTable
             columns={quoteColumns}
-            data={QUOTES}
+            data={quotes}
             searchable
             searchPlaceholder={meta.placeholder}
             emptyTitle="Aucun devis"
