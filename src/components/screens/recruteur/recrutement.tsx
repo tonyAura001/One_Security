@@ -2,9 +2,19 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Briefcase, MapPin, Users, Calendar, Video, Phone } from "lucide-react";
+import {
+  Briefcase,
+  MapPin,
+  Users,
+  Calendar,
+  Video,
+  Phone,
+  CalendarClock,
+  UserCheck,
+} from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { formatDateFR, formatFCFACompact } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -13,6 +23,7 @@ import {
   fetchPostes,
   fetchCandidatures,
   fetchEntretiens,
+  fetchRecrutementStats,
   updateCandidatureStatut,
   type CandidatureStatut,
 } from "@/lib/supabase/data/recrutement";
@@ -54,6 +65,15 @@ export function RecrutementScreen() {
   const [posteId, setPosteId] = useState<string | null>(null);
   const [candidatureId, setCandidatureId] = useState<string | null>(null);
 
+  const statsQ = useQuery({
+    queryKey: ["recrutement-stats"],
+    queryFn: fetchRecrutementStats,
+  });
+  const stats = statsQ.data;
+  const funnelMax = stats
+    ? Math.max(1, ...stats.funnel.map((f) => f.count))
+    : 1;
+
   const postesQ = useQuery({ queryKey: ["postes"], queryFn: fetchPostes });
   const postes = postesQ.data ?? [];
   const activePoste = posteId ?? postes[0]?.id ?? null;
@@ -84,6 +104,64 @@ export function RecrutementScreen() {
 
   return (
     <ScreenContainer>
+      {/* ── Tableau de bord recrutement (KPIs + funnel) ── */}
+      {stats && (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-[15px] lg:grid-cols-4">
+            <KpiCard
+              icon={Briefcase}
+              tone="accent"
+              value={String(stats.postesOuverts)}
+              label="Postes ouverts"
+            />
+            <KpiCard
+              icon={Users}
+              tone="violet"
+              value={String(stats.candidaturesTotal)}
+              label="Candidatures"
+            />
+            <KpiCard
+              icon={CalendarClock}
+              tone="warning"
+              value={String(stats.entretiensAVenir)}
+              label="Entretiens à venir"
+            />
+            <KpiCard
+              icon={UserCheck}
+              tone="success"
+              value={`${stats.tauxEmbauche} %`}
+              label="Taux d'embauche"
+            />
+          </div>
+          <Card className="mb-4 p-[16px_20px]">
+            <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.6px] uppercase">
+              Pipeline candidatures
+            </div>
+            <div className="flex flex-col gap-2">
+              {stats.funnel.map((f) => {
+                const meta = CAND_STATUT[f.statut];
+                return (
+                  <div key={f.statut} className="flex items-center gap-3">
+                    <span className="text-muted w-24 flex-none text-[12px] font-bold">
+                      {meta.label}
+                    </span>
+                    <div className="bg-surface2 h-5 flex-1 overflow-hidden rounded-md">
+                      <div
+                        className="bg-accent/70 h-full rounded-md"
+                        style={{ width: `${(f.count / funnelMax) * 100}%` }}
+                      />
+                    </div>
+                    <span className="tnum text-foreground w-8 flex-none text-right text-[12.5px] font-extrabold">
+                      {f.count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </>
+      )}
+
       <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[1fr_1.4fr]">
         {/* ── Postes à pourvoir ── */}
         <Card className="flex flex-col gap-2 p-3">

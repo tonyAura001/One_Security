@@ -210,6 +210,59 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
   });
 }
 
+export interface RecrutementStats {
+  postesOuverts: number;
+  candidaturesTotal: number;
+  entretiensAVenir: number;
+  tauxEmbauche: number;
+  funnel: { statut: CandidatureStatut; count: number }[];
+}
+
+const FUNNEL_ORDER: CandidatureStatut[] = [
+  "nouveau",
+  "preselection",
+  "entretien",
+  "offre",
+  "embauche",
+  "refuse",
+];
+
+/** KPIs du recrutement (agrégés côté client sur les données visibles par RLS). */
+export async function fetchRecrutementStats(): Promise<RecrutementStats> {
+  const supabase = createClient();
+  const [postes, cands, ents] = await Promise.all([
+    supabase.from("Poste").select("statut"),
+    supabase.from("Candidature").select("statut"),
+    supabase.from("Entretien").select("dateHeure,statut"),
+  ]);
+  if (postes.error) throw postes.error;
+  if (cands.error) throw cands.error;
+  if (ents.error) throw ents.error;
+
+  const counts = new Map<string, number>();
+  for (const c of cands.data as { statut: string }[]) {
+    counts.set(c.statut, (counts.get(c.statut) ?? 0) + 1);
+  }
+  const now = Date.now();
+  const total = cands.data.length;
+  return {
+    postesOuverts: (postes.data as { statut: string }[]).filter(
+      (p) => p.statut === "ouvert",
+    ).length,
+    candidaturesTotal: total,
+    entretiensAVenir: (ents.data as { dateHeure: string; statut: string }[]).filter(
+      (e) => e.statut === "planifie" && new Date(e.dateHeure).getTime() > now,
+    ).length,
+    tauxEmbauche: total
+      ? Math.round(((counts.get("embauche") ?? 0) / total) * 100)
+      : 0,
+    funnel: FUNNEL_ORDER.map((statut) => ({
+      statut,
+      count: counts.get(statut) ?? 0,
+    })),
+  };
+}
+
 /** Change le statut d'une candidature (RLS : équipe recrutement). */
 export async function updateCandidatureStatut(
   id: string,
