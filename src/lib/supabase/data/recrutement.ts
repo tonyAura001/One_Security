@@ -162,21 +162,17 @@ export async function fetchEntretiens(candidatureId: string): Promise<Entretien[
   });
 }
 
+interface DbAgendaCand {
+  id: string;
+  Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
+  Poste: { titre: string } | { titre: string }[] | null;
+}
 interface DbAgendaRow {
   id: string;
   dateHeure: string;
   type: string;
   User: DbRec | DbRec[] | null;
-  Candidature:
-    | {
-        Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
-        Poste: { titre: string } | { titre: string }[] | null;
-      }
-    | {
-        Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
-        Poste: { titre: string } | { titre: string }[] | null;
-      }[]
-    | null;
+  Candidature: DbAgendaCand | DbAgendaCand[] | null;
 }
 
 /**
@@ -188,7 +184,7 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
   const { data, error } = await supabase
     .from("Entretien")
     .select(
-      "id,dateHeure,type,User(prenom,nom),Candidature(Candidat(prenom,nom),Poste(titre))",
+      "id,dateHeure,type,User(prenom,nom),Candidature(id,Candidat(prenom,nom),Poste(titre))",
     )
     .order("dateHeure", { ascending: true });
   if (error) throw error;
@@ -200,6 +196,7 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
     const dt = new Date(r.dateHeure);
     return {
       id: r.id,
+      candidatureId: ca?.id ?? "",
       candidate: cand ? `${cand.prenom} ${cand.nom}` : "—",
       role: poste?.titre ?? "—",
       date: r.dateHeure.slice(0, 10),
@@ -336,4 +333,57 @@ export async function updateCandidatureStatut(
   if (!data || data.length === 0) {
     throw new Error("row-level security: accès refusé");
   }
+}
+
+/** Planifie un entretien pour une candidature (recruteur = utilisateur courant). */
+export async function createEntretien(input: {
+  candidatureId: string;
+  dateHeure: string; // ISO
+  type: EntretienType;
+}): Promise<void> {
+  const supabase = createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const recruteurId = auth.user?.id;
+  if (!recruteurId) throw new Error("Session invalide");
+  const { data, error } = await supabase
+    .from("Entretien")
+    .insert({
+      candidatureId: input.candidatureId,
+      recruteurId,
+      dateHeure: input.dateHeure,
+      type: input.type,
+    } as never)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: création refusée (accès écriture).");
+}
+
+export interface CandidatureOption {
+  id: string;
+  label: string;
+}
+
+/** Liste des candidatures (pour planifier un entretien). */
+export async function fetchAllCandidatures(): Promise<CandidatureOption[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Candidature")
+    .select("id,Candidat(prenom,nom),Poste(titre)")
+    .order("datePostulation", { ascending: false });
+  if (error) throw error;
+  return (
+    data as unknown as {
+      id: string;
+      Candidat: { prenom: string; nom: string } | { prenom: string; nom: string }[] | null;
+      Poste: { titre: string } | { titre: string }[] | null;
+    }[]
+  ).map((r) => {
+    const c = one(r.Candidat);
+    const p = one(r.Poste);
+    return {
+      id: r.id,
+      label: `${c ? `${c.prenom} ${c.nom}` : "—"} — ${p?.titre ?? "—"}`,
+    };
+  });
 }

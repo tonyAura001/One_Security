@@ -140,6 +140,7 @@ export interface Candidate {
 
 export interface Interview {
   id: ID;
+  candidatureId: ID;
   candidate: string;
   role: string;
   date: string;

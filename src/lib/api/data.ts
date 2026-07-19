@@ -740,6 +740,7 @@ export const CANDIDATES: Candidate[] = [
 export const INTERVIEWS: Interview[] = [
   {
     id: "it1",
+    candidatureId: "",
     candidate: "Ibou Sarr",
     role: "Agent cynophile",
     date: "2026-07-04",
@@ -749,6 +750,7 @@ export const INTERVIEWS: Interview[] = [
   },
   {
     id: "it2",
+    candidatureId: "",
     candidate: "Ndeye Gueye",
     role: "Agent de sécurité",
     date: "2026-07-04",
@@ -758,6 +760,7 @@ export const INTERVIEWS: Interview[] = [
   },
   {
     id: "it3",
+    candidatureId: "",
     candidate: "Oumar Ba",
     role: "Superviseur",
     date: "2026-07-05",
