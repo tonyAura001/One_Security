@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Button } from "@/aurantir-front-kit";
@@ -10,13 +11,24 @@ import {
   type Conversation,
 } from "@/lib/api/messagerie";
 import { cn } from "@/lib/utils";
+import { fetchConversations, sendMessage } from "@/lib/supabase/data/messagerie";
+import { toast } from "@/lib/toast";
 
 export function MessagerieScreen() {
+  const qc = useQueryClient();
+  const { data, isSuccess } = useQuery({ queryKey: ["conversations"], queryFn: fetchConversations });
+  const live = isSuccess && data.length > 0;
+
   const [convos, setConvos] = useState<Conversation[]>(CONVERSATIONS);
-  const [activeId, setActiveId] = useState(CONVERSATIONS[0].id);
+  useEffect(() => {
+    if (live) setConvos(data);
+  }, [live, data]);
+
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState("");
 
-  const active = convos.find((c) => c.id === activeId) ?? convos[0];
+  const effectiveId = activeId ?? convos[0]?.id;
+  const active = convos.find((c) => c.id === effectiveId) ?? convos[0];
 
   function select(id: string) {
     setActiveId(id);
@@ -34,7 +46,14 @@ export function MessagerieScreen() {
       ),
     );
     setInput("");
+    if (live) {
+      sendMessage(active.id, text)
+        .then(() => qc.invalidateQueries({ queryKey: ["conversations"] }))
+        .catch(() => toast.error("Message non envoyé"));
+    }
   }
+
+  if (!active) return null;
 
   return (
     <ScreenContainer>

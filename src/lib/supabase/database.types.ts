@@ -167,12 +167,12 @@ export type Database = {
           "updatedAt": string;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "nom": string;
           "description"?: string | null;
           "prive"?: boolean;
           "createdAt"?: string;
-          "updatedAt": string;
+          "updatedAt"?: string;
         };
         Update: {
           "id"?: string;
@@ -952,7 +952,7 @@ export type Database = {
           "createdAt": string;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "contenu": string;
           "canalId": string;
           "auteurId": string;
@@ -1236,7 +1236,7 @@ export type Database = {
           "updatedAt": string;
         };
         Insert: {
-          "id": string;
+          "id"?: string;
           "statut"?: Database["public"]["Enums"]["StatutRonde"];
           "debut"?: string | null;
           "fin"?: string | null;
@@ -1245,7 +1245,7 @@ export type Database = {
           "siteId"?: string | null;
           "pointageId"?: string | null;
           "createdAt"?: string;
-          "updatedAt": string;
+          "updatedAt"?: string;
         };
         Update: {
           "id"?: string;
