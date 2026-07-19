@@ -1144,6 +1144,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Publication": {
+        Row: {
+          "id": string;
+          "titre": string;
+          "contenu": string | null;
+          "canal": string;
+          "datePublication": string;
+          "statut": string;
+          "engagement": number | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "titre": string;
+          "contenu"?: string | null;
+          "canal"?: string;
+          "datePublication"?: string;
+          "statut"?: string;
+          "engagement"?: number | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "titre"?: string;
+          "contenu"?: string | null;
+          "canal"?: string;
+          "datePublication"?: string;
+          "statut"?: string;
+          "engagement"?: number | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "Role": {
         Row: {
           "id": string;

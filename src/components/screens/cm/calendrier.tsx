@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { Plus } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -7,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { PillVariant } from "@/components/ui/status-pill";
 import { PUBLICATIONS } from "@/lib/api/data";
+import { fetchPublications } from "@/lib/supabase/data/publications";
 import type { Publication, PublicationStatus } from "@/lib/api/types";
 import { formatDateFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -37,11 +40,12 @@ const statusMeta: Record<
   brouillon: { variant: "warning", label: "Brouillon" },
 };
 
-const orderedPublications = [...PUBLICATIONS].sort(
-  (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-);
-
 export function CmCalendrier() {
+  const { data, isSuccess } = useQuery({ queryKey: ["publications"], queryFn: fetchPublications });
+  const publications = isSuccess && data.length > 0 ? data : PUBLICATIONS;
+  const orderedPublications = [...publications].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
   return (
     <ScreenContainer>
       <div className="mb-4 flex items-center justify-between">
