@@ -859,6 +859,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      "Intervention": {
+        Row: {
+          "id": string;
+          "ref": string;
+          "siteId": string | null;
+          "technicienId": string | null;
+          "dateHeure": string;
+          "resume": string | null;
+          "statut": string;
+          "dureeMin": number | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "ref": string;
+          "siteId"?: string | null;
+          "technicienId"?: string | null;
+          "dateHeure"?: string;
+          "resume"?: string | null;
+          "statut"?: string;
+          "dureeMin"?: number | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "ref"?: string;
+          "siteId"?: string | null;
+          "technicienId"?: string | null;
+          "dateHeure"?: string;
+          "resume"?: string | null;
+          "statut"?: string;
+          "dureeMin"?: number | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
       "Materiel": {
         Row: {
           "id": string;
@@ -1229,6 +1268,45 @@ export type Database = {
           "terminee"?: boolean;
           "assigneAId"?: string | null;
           "creeParId"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Relationships: [];
+      };
+      "Ticket": {
+        Row: {
+          "id": string;
+          "ref": string;
+          "titre": string;
+          "siteId": string | null;
+          "criticite": string;
+          "stage": string;
+          "dateOuverture": string;
+          "equipement": string | null;
+          "createdAt": string;
+          "updatedAt": string;
+        };
+        Insert: {
+          "id"?: string;
+          "ref": string;
+          "titre": string;
+          "siteId"?: string | null;
+          "criticite"?: string;
+          "stage"?: string;
+          "dateOuverture"?: string;
+          "equipement"?: string | null;
+          "createdAt"?: string;
+          "updatedAt"?: string;
+        };
+        Update: {
+          "id"?: string;
+          "ref"?: string;
+          "titre"?: string;
+          "siteId"?: string | null;
+          "criticite"?: string;
+          "stage"?: string;
+          "dateOuverture"?: string;
+          "equipement"?: string | null;
           "createdAt"?: string;
           "updatedAt"?: string;
         };

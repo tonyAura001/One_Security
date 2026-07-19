@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ImageIcon } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
 import { INTERVENTIONS } from "@/lib/api/data";
+import { fetchInterventions } from "@/lib/supabase/data/maintenance";
 import type { Intervention } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +42,11 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export function MaintenanceInterventions() {
-  const [selectedId, setSelectedId] = useState<string>(INTERVENTIONS[0].id);
+  const { data, isSuccess } = useQuery({ queryKey: ["interventions"], queryFn: fetchInterventions });
+  const interventions = isSuccess && data.length > 0 ? data : INTERVENTIONS;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected =
-    INTERVENTIONS.find((i) => i.id === selectedId) ?? INTERVENTIONS[0];
+    interventions.find((i) => i.id === selectedId) ?? interventions[0];
   const selectedMeta = STATUS_META[selected.status];
 
   return (
@@ -117,7 +121,7 @@ export function MaintenanceInterventions() {
             Historique des interventions
           </div>
           <span className="text-muted text-[12px] font-bold">
-            {INTERVENTIONS.length} au total
+            {interventions.length} au total
           </span>
         </div>
 
@@ -132,7 +136,7 @@ export function MaintenanceInterventions() {
         </div>
 
         {/* Rows */}
-        {INTERVENTIONS.map((it, i) => {
+        {interventions.map((it, i) => {
           const meta = STATUS_META[it.status];
           const active = it.id === selectedId;
           return (
@@ -142,7 +146,7 @@ export function MaintenanceInterventions() {
               onClick={() => setSelectedId(it.id)}
               className={cn(
                 "hover:bg-hover flex w-full items-center gap-3.5 px-1 py-3 text-left transition-colors",
-                i < INTERVENTIONS.length - 1 && "border-border border-b",
+                i < interventions.length - 1 && "border-border border-b",
                 active && "bg-active",
               )}
             >

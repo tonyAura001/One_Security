@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KanbanBoard, type KanbanColumn } from "@/components/ui/kanban-board";
@@ -8,6 +9,7 @@ import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { TICKETS } from "@/lib/api/data";
+import { fetchTickets, updateTicketStage } from "@/lib/supabase/data/maintenance";
 import type { Ticket, TicketCriticality, TicketStage } from "@/lib/api/types";
 
 const COLUMNS: KanbanColumn[] = [
@@ -29,10 +31,20 @@ const CRITICALITY_META: Record<
 
 export function MaintenanceTickets() {
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS);
+  const { data, isSuccess } = useQuery({ queryKey: ["tickets"], queryFn: fetchTickets });
+  useEffect(() => {
+    if (isSuccess && data.length > 0) setTickets(data);
+  }, [isSuccess, data]);
+  const live = isSuccess && data.length > 0;
 
   function handleMove(id: string, toColumn: string) {
     const stage = toColumn as TicketStage;
     setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)));
+    if (live) {
+      updateTicketStage(id, stage).catch(() =>
+        toast.error("Déplacement non enregistré (accès requis)"),
+      );
+    }
     const ticket = tickets.find((t) => t.id === id);
     if (ticket) {
       const col = COLUMNS.find((c) => c.id === stage);
