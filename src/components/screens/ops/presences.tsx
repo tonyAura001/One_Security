@@ -1,9 +1,12 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import { ATTENDANCE } from "@/lib/api/data";
+import { fetchAttendance } from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
 import type { Tone } from "@/lib/colors";
 import { toneText } from "@/lib/colors";
@@ -24,10 +27,13 @@ interface StatCard {
 }
 
 export function OpsPresences() {
-  const present = ATTENDANCE.filter((a) => a.status === "present").length;
-  const retard = ATTENDANCE.filter((a) => a.status === "retard").length;
-  const absent = ATTENDANCE.filter((a) => a.status === "absent").length;
-  const rate = ((present + retard) / ATTENDANCE.length) * 100;
+  // Présences réelles via Supabase (RLS ops) ; repli démo si accès refusé.
+  const attQuery = useQuery({ queryKey: ["attendance"], queryFn: fetchAttendance });
+  const attendance = attQuery.isSuccess && attQuery.data.length > 0 ? attQuery.data : ATTENDANCE;
+  const present = attendance.filter((a) => a.status === "present").length;
+  const retard = attendance.filter((a) => a.status === "retard").length;
+  const absent = attendance.filter((a) => a.status === "absent").length;
+  const rate = ((present + retard) / attendance.length) * 100;
 
   const stats: StatCard[] = [
     {
@@ -80,13 +86,13 @@ export function OpsPresences() {
         </div>
 
         {/* Rows */}
-        {ATTENDANCE.map((a, i) => {
+        {attendance.map((a, i) => {
           const meta = STATUS_META[a.status];
           return (
             <div
               key={a.id}
               className={`flex items-center gap-3.5 px-1 py-3 ${
-                i < ATTENDANCE.length - 1 ? "border-border border-b" : ""
+                i < attendance.length - 1 ? "border-border border-b" : ""
               }`}
             >
               <div className="text-foreground flex-[1.4] truncate text-[12.5px] font-bold">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { useMemo, useState } from "react";
 import { Shield } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
@@ -9,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
 import { ATTENDANCE } from "@/lib/api/data";
+import { fetchAttendance } from "@/lib/supabase/data/attendance";
 import type { Attendance } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -32,12 +35,15 @@ function initials(name: string): string {
 }
 
 export function OpsPointage() {
+  // Présences réelles via Supabase (RLS ops) ; repli démo si accès refusé.
+  const attQuery = useQuery({ queryKey: ["attendance"], queryFn: fetchAttendance });
+  const attendance = attQuery.isSuccess && attQuery.data.length > 0 ? attQuery.data : ATTENDANCE;
   const [site, setSite] = useState<string>(ALL);
 
-  const sites = useMemo(() => [...new Set(ATTENDANCE.map((a) => a.site))], []);
+  const sites = useMemo(() => [...new Set(attendance.map((a) => a.site))], []);
 
   const filtered =
-    site === ALL ? ATTENDANCE : ATTENDANCE.filter((a) => a.site === site);
+    site === ALL ? attendance : attendance.filter((a) => a.site === site);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Attendance[]>();
