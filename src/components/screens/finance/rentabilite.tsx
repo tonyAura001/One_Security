@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SiteProfitabilityCard } from "@/components/finance/site-profitability-card";
-import { useSession } from "@/lib/store/session";
-import { getSiteProfitability, consolidate } from "@/lib/api/profitability";
+import { consolidate } from "@/lib/api/profitability";
+import { fetchRentabilite } from "@/lib/supabase/data/rentabilite";
 import { formatFCFA } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +39,7 @@ function TotalStat({
 }
 
 export function RentabiliteScreen() {
-  const { role } = useSession();
-  const sites = useMemo(() => getSiteProfitability(role), [role]);
+  const { data: sites = [] } = useQuery({ queryKey: ["rentabilite"], queryFn: fetchRentabilite });
   const total = useMemo(() => consolidate(sites), [sites]);
 
   return (

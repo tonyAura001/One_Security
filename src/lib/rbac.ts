@@ -737,6 +737,7 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   // Finance
   "finance",
   "tresorerie",
+  "rentabilite",
   "relances",
   "exportpaie",
   // Opérations
