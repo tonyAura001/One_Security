@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { ONE_SECURITY } from "@/lib/one-security";
 import { useSession } from "@/lib/store/session";
 import { createClient } from "@/lib/supabase/client";
+import { switchActiveRole } from "@/lib/supabase/data/admin-members";
+import { ROLES, type RoleId } from "@/lib/rbac";
 import { downloadCsv } from "@/lib/csv";
 import {
   fetchParametres,
@@ -328,6 +330,72 @@ function MembresPanel() {
 
 // ── Sécurité : changement de mot de passe réel + état de sécurité honnête ────
 
+/** Bascule du rôle actif — visible seulement pour un membre multi-rôles. */
+function RoleSwitcher() {
+  const [roles, setRoles] = useState<string[]>([]);
+  const [active, setActive] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => {
+        const meta = (data.session?.user.app_metadata ?? {}) as Record<string, unknown>;
+        const rs = Array.isArray(meta.roles) ? (meta.roles as string[]).map(String) : [];
+        setRoles(rs);
+        setActive(String(meta.role ?? ""));
+      });
+  }, []);
+
+  if (roles.length <= 1) return null;
+
+  const roleLabel = (r: string) => ROLES[r.toLowerCase() as RoleId]?.fonction ?? r;
+
+  async function switchTo(r: string) {
+    if (r === active || busy) return;
+    setBusy(true);
+    try {
+      await switchActiveRole(r);
+      await createClient().auth.refreshSession();
+      toast.success("Rôle actif changé", "Rechargement…");
+      window.location.reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-[20px]">
+      <div className="text-foreground mb-2 text-[15px] font-extrabold tracking-[-0.3px]">
+        Rôle actif
+      </div>
+      <p className="text-muted mb-3 text-[12px] font-semibold">
+        Vous occupez {roles.length} rôles. Choisissez celui sous lequel vous travaillez
+        (il pilote votre menu et vos accès aux données).
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {roles.map((r) => (
+          <button
+            key={r}
+            disabled={busy}
+            onClick={() => switchTo(r)}
+            className={cn(
+              "rounded-[10px] border px-3 py-2 text-[12.5px] font-bold transition-colors disabled:opacity-50",
+              r === active
+                ? "border-accent bg-accent/14 text-accent"
+                : "border-border bg-surface2 text-muted hover:bg-hover",
+            )}
+          >
+            {roleLabel(r)}
+            {r === active ? " · actif" : ""}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function SecuritePanel() {
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -363,6 +431,8 @@ function SecuritePanel() {
 
   return (
     <div className="flex flex-col gap-[15px]">
+      <RoleSwitcher />
+
       <Card className="p-[20px]">
         <div className="text-foreground mb-4 flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.3px]">
           <KeyRound className="size-4" /> Changer mon mot de passe

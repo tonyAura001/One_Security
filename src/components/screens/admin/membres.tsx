@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreHorizontal,
   Pause,
@@ -37,9 +37,14 @@ import { fetchMembers } from "@/lib/supabase/data/members";
 import { ROLE_ORDER, ROLES, type RoleId } from "@/lib/rbac";
 import { formatRelative } from "@/lib/format";
 import { toast } from "@/lib/toast";
+import {
+  inviteMember,
+  resetMemberPassword,
+  setMemberRoles,
+} from "@/lib/supabase/data/admin-members";
 
 export function AdminMembres() {
-  const { members, suspend, reactivate, revoke, invite } = useMembersStore();
+  const { members, suspend, reactivate, revoke } = useMembersStore();
   // Hydrate le store depuis la table User (RLS DG/RH) ; repli SEED démo sinon.
   const { data } = useQuery({
     queryKey: ["members"],
@@ -169,17 +174,7 @@ export function AdminMembres() {
         </div>
       </Card>
 
-      <InviteDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        onInvite={(data) => {
-          invite(data);
-          toast.success(
-            "Invitation envoyée",
-            `${data.name} · ${data.roleLabel}`,
-          );
-        }}
-      />
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </ScreenContainer>
   );
 }
@@ -197,8 +192,35 @@ function MemberRow({
   onRevoke: () => void;
   onResend: () => void;
 }) {
+  const qc = useQueryClient();
   const meta = STATUT_META[m.statut];
   const roleGrad = ROLES[m.role].gradient;
+  const [pwOpen, setPwOpen] = useState(false);
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const [pickRoles, setPickRoles] = useState<RoleId[]>([m.role]);
+
+  const resetPw = useMutation({
+    mutationFn: () => resetMemberPassword(m.id, newPw),
+    onSuccess: () => {
+      toast.success("Mot de passe réinitialisé", m.email);
+      setPwOpen(false);
+      setNewPw("");
+    },
+    onError: (e: unknown) => toast.error(adminErr(e)),
+  });
+  const saveRoles = useMutation({
+    mutationFn: () => setMemberRoles(m.id, pickRoles),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Rôles mis à jour", `${pickRoles.length} rôle(s)`);
+      setRolesOpen(false);
+    },
+    onError: (e: unknown) => toast.error(adminErr(e)),
+  });
+  const toggle = (id: RoleId) =>
+    setPickRoles((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]));
+
   return (
     <tr>
       <td>
@@ -268,6 +290,12 @@ function MemberRow({
                     <Play size={14} /> Réactiver
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onSelect={() => { setPickRoles([m.role]); setRolesOpen(true); }}>
+                  <Shield size={14} /> Modifier les rôles
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPwOpen(true)}>
+                  <UserPlus size={14} /> Réinitialiser le mot de passe
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={onRevoke}
@@ -279,102 +307,149 @@ function MemberRow({
             </DropdownMenu>
           )}
         </div>
+
+        {/* Dialogue : réinitialiser le mot de passe (DG) */}
+        <Dialog open={pwOpen} onOpenChange={setPwOpen}>
+          <DialogContent className="border-surface-border bg-surface max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-text-primary">Réinitialiser le mot de passe</DialogTitle>
+            </DialogHeader>
+            <div className="py-1">
+              <label className="label">Nouveau mot de passe pour {m.name}</label>
+              <input className="input" type="text" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="8 caractères minimum" autoComplete="new-password" />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="secondary" onClick={() => setPwOpen(false)}>Annuler</Button>
+              <Button variant="primary" disabled={newPw.length < 8 || resetPw.isPending} onClick={() => resetPw.mutate()}>
+                {resetPw.isPending ? "…" : "Définir le mot de passe"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialogue : modifier les rôles (DG) */}
+        <Dialog open={rolesOpen} onOpenChange={setRolesOpen}>
+          <DialogContent className="border-surface-border bg-surface max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-text-primary">Rôles de {m.name}</DialogTitle>
+            </DialogHeader>
+            <div className="py-1">
+              <label className="label">Rôles attribués (le 1er coché = rôle actif)</label>
+              <div className="border-surface-border grid grid-cols-2 gap-1.5 rounded-lg border p-2">
+                {ROLE_ORDER.map((id) => (
+                  <label key={id} className="text-text-secondary flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] font-semibold hover:bg-surface-hover">
+                    <input type="checkbox" checked={pickRoles.includes(id)} onChange={() => toggle(id)} className="accent-blue" />
+                    {ROLES[id].fonction}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="secondary" onClick={() => setRolesOpen(false)}>Annuler</Button>
+              <Button variant="primary" disabled={pickRoles.length === 0 || saveRoles.isPending} onClick={() => saveRoles.mutate()}>
+                {saveRoles.isPending ? "…" : "Enregistrer les rôles"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </td>
     </tr>
   );
 }
 
+function adminErr(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /service_role|indisponible/i.test(msg)
+    ? "Action indisponible : clé service_role non configurée sur le serveur."
+    : msg;
+}
+
 function InviteDialog({
   open,
   onOpenChange,
-  onInvite,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onInvite: (data: {
-    name: string;
-    email: string;
-    role: RoleId;
-    roleLabel: string;
-    site: string;
-  }) => void;
 }) {
+  const qc = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<RoleId>("controleur");
-  const [site, setSite] = useState("Siège");
+  const [password, setPassword] = useState("");
+  const [roles, setRoles] = useState<RoleId[]>(["controleur"]);
 
-  function submit() {
-    if (!name.trim() || !email.trim()) {
-      toast.error("Nom et email requis");
-      return;
-    }
-    onInvite({ name, email, role, roleLabel: ROLES[role].fonction, site });
-    onOpenChange(false);
+  function reset() {
     setName("");
     setEmail("");
-    setSite("Siège");
+    setPassword("");
+    setRoles(["controleur"]);
   }
+  function toggleRole(id: RoleId) {
+    setRoles((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]));
+  }
+
+  const mut = useMutation({
+    mutationFn: () => inviteMember({ nom: name, email, password, roles }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Membre créé", `${email} · ${roles.length} rôle(s)`);
+      onOpenChange(false);
+      reset();
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /service_role|indisponible/i.test(msg)
+          ? "Création indisponible : clé service_role non configurée sur le serveur."
+          : msg,
+      );
+    },
+  });
+
+  const valid =
+    name.trim().length > 0 && email.trim().length > 0 && password.length >= 8 && roles.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-surface-border bg-surface max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-text-primary">
-            Inviter un membre
-          </DialogTitle>
+          <DialogTitle className="text-text-primary">Inviter un membre</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-1">
-          <label className="label">Nom complet</label>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ex. Awa Ndiaye"
-          />
-          <label className="label">Email</label>
-          <input
-            className="input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="prenom.nom@onesecurity.sn"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Rôle</label>
-              <select
-                className="input cursor-pointer"
-                value={role}
-                onChange={(e) => setRole(e.target.value as RoleId)}
-              >
-                {ROLE_ORDER.map((id) => (
-                  <option key={id} value={id}>
-                    {ROLES[id].fonction}
-                  </option>
-                ))}
-              </select>
+          <div>
+            <label className="label">Nom complet</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Awa Ndiaye" />
+          </div>
+          <div>
+            <label className="label">Email</label>
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom.nom@onesecurity.sn" />
+          </div>
+          <div>
+            <label className="label">Mot de passe (défini par la Direction)</label>
+            <input className="input" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caractères minimum" autoComplete="new-password" />
+          </div>
+          <div>
+            <label className="label">Rôles (le 1er coché = rôle actif par défaut)</label>
+            <div className="border-surface-border grid grid-cols-2 gap-1.5 rounded-lg border p-2">
+              {ROLE_ORDER.map((id) => (
+                <label key={id} className="text-text-secondary flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] font-semibold hover:bg-surface-hover">
+                  <input type="checkbox" checked={roles.includes(id)} onChange={() => toggleRole(id)} className="accent-blue" />
+                  {ROLES[id].fonction}
+                </label>
+              ))}
             </div>
-            <div>
-              <label className="label">Site</label>
-              <input
-                className="input"
-                value={site}
-                onChange={(e) => setSite(e.target.value)}
-              />
-            </div>
+            {roles.length > 1 && (
+              <div className="text-text-muted mt-1 text-[11px]">
+                Rôle actif : <b>{ROLES[roles[0]].fonction}</b> · le membre pourra basculer entre ses {roles.length} rôles.
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button
-            variant="primary"
-            icon={<UserPlus size={15} />}
-            onClick={submit}
-          >
-            Envoyer l’invitation
+          <Button variant="primary" icon={<UserPlus size={15} />} onClick={() => valid && mut.mutate()} disabled={!valid || mut.isPending}>
+            {mut.isPending ? "Création…" : "Créer le membre"}
           </Button>
         </DialogFooter>
       </DialogContent>
