@@ -2,103 +2,44 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2 } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
-import { RoleAvatar } from "@/components/shell/avatar";
-import { usePayrollStore } from "@/lib/store/payroll";
+import { usePayrollCycle } from "@/lib/hooks/use-payroll-cycle";
+import { fetchPayslips } from "@/lib/supabase/data/payroll";
+import { currentPeriode } from "@/lib/supabase/data/cycle-paie";
 import { formatNumberFR } from "@/lib/format";
-import { toast } from "@/lib/toast";
+import { CircuitStepper } from "./circuit-stepper";
 
 type View = "bulletins" | "approbation";
-
-const BULLETINS = [
-  {
-    initials: "AS",
-    name: "Abdou Sarr",
-    post: "Agent · Port Autonome",
-    brut: 165000,
-    net: 142800,
-    paid: true,
-  },
-  {
-    initials: "FN",
-    name: "Fatou Ndiaye",
-    post: "Cheffe de poste · Ambassade France",
-    brut: 210000,
-    net: 181500,
-    paid: true,
-  },
-  {
-    initials: "MB",
-    name: "Moussa Ba",
-    post: "Agent cynophile · BICIS Plateau",
-    brut: 185000,
-    net: 160000,
-    paid: false,
-  },
-  {
-    initials: "AD",
-    name: "Awa Diop",
-    post: "Agent · Sonatel Siège",
-    brut: 160000,
-    net: 138400,
-    paid: true,
-  },
-  {
-    initials: "CF",
-    name: "Cheikh Fall",
-    post: "Agent nuit · Port Autonome",
-    brut: 172000,
-    net: 148700,
-    paid: true,
-  },
-  {
-    initials: "MS",
-    name: "Mariama Sow",
-    post: "Superviseure · Eiffage Sénégal",
-    brut: 225000,
-    net: 194600,
-    paid: false,
-  },
-  {
-    initials: "IG",
-    name: "Ibrahima Guèye",
-    post: "Agent · Ambassade USA",
-    brut: 168000,
-    net: 145200,
-    paid: true,
-  },
-];
-
-const MASSE = [
-  { poste: "Salaires de base", detail: "52 agents", montant: 6180000 },
-  { poste: "Primes de risque", detail: "Sites sensibles", montant: 1240000 },
-  { poste: "Heures supplémentaires", detail: "214 h", montant: 520000 },
-  {
-    poste: "Indemnités transport & repas",
-    detail: "52 agents",
-    montant: 410000,
-  },
-  {
-    poste: "Cotisations sociales",
-    detail: "IPRES / CSS · employeur",
-    montant: 570000,
-  },
-];
 
 export function PayrollPaie() {
   const pathname = usePathname();
   const [view, setView] = useState<View>(
     pathname.includes("approbation") ? "approbation" : "bulletins",
   );
-  const stage = usePayrollStore((s) => s.stage);
-  const approve = usePayrollStore((s) => s.approve);
+  const { stage, advance, isPending } = usePayrollCycle();
   const approved = stage === "approuve";
   const canApprove = stage === "valide";
+
+  const periode = currentPeriode();
+  const { data: payslips = [] } = useQuery({
+    queryKey: ["payslips", periode],
+    queryFn: () => fetchPayslips(periode),
+  });
+  const totalNet = payslips.reduce((s, p) => s + p.net, 0);
+  const totalBrut = payslips.reduce((s, p) => s + p.gross, 0);
+  const totalCotis = payslips.reduce((s, p) => s + p.ipres + p.css, 0);
+  const totalIr = payslips.reduce((s, p) => s + p.ir, 0);
+  const masse = [
+    { poste: "Salaires nets", detail: `${payslips.length} agents`, montant: totalNet },
+    { poste: "Cotisations sociales", detail: "IPRES / CSS", montant: totalCotis },
+    { poste: "Impôt sur le revenu (IR)", detail: "Retenue à la source", montant: totalIr },
+  ];
 
   return (
     <ScreenContainer>
@@ -117,15 +58,15 @@ export function PayrollPaie() {
         <>
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Kpi
-              label="Net à payer · Juin 2026"
-              value="7 682 000 FCFA"
+              label={`Net à payer · ${periode}`}
+              value={`${formatNumberFR(totalNet)} FCFA`}
               tone="text-success"
             />
-            <Kpi label="Bulletins générés" value="52 / 52 agents" />
+            <Kpi label="Bulletins générés" value={`${payslips.length} agents`} />
             <Kpi
-              label="Restant à payer"
-              value="3 bulletins en attente"
-              tone="text-warning"
+              label="Statut du cycle"
+              value={approved ? "Approuvé" : "En cours"}
+              tone={approved ? "text-success" : "text-warning"}
             />
           </div>
 
@@ -137,8 +78,8 @@ export function PayrollPaie() {
                   Masse salariale validée
                 </div>
                 <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
-                  Approuvée le 3 juillet 2026 par M. Diallo — transmise à la
-                  comptabilité pour paiement.
+                  Approuvée par le Directeur Général — transmise à la comptabilité
+                  pour paiement.
                 </div>
               </div>
             </Card>
@@ -147,19 +88,8 @@ export function PayrollPaie() {
           <Card className="overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5">
               <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-                Bulletins de paie — Juin 2026
+                Bulletins de paie — {periode}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() =>
-                  toast.success("Bulletins générés", "52 bulletins PDF")
-                }
-              >
-                <Plus className="size-3.5" />
-                Générer les bulletins
-              </Button>
             </div>
             <div className="border-border overflow-x-auto border-t">
               <table className="w-full border-collapse text-left">
@@ -178,40 +108,53 @@ export function PayrollPaie() {
                   </tr>
                 </thead>
                 <tbody>
-                  {BULLETINS.map((b) => (
-                    <tr
-                      key={b.name}
-                      className="border-border hover:bg-hover border-b last:border-0"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="bg-active text-accent flex size-8 flex-none items-center justify-center rounded-lg text-[11px] font-extrabold">
-                            {b.initials}
-                          </span>
-                          <span className="text-foreground text-[13px] font-bold">
-                            {b.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="text-muted px-4 py-3 text-[12px] font-semibold">
-                        {b.post}
-                      </td>
-                      <td className="tnum text-foreground px-4 py-3 text-right text-[13px] font-semibold">
-                        {formatNumberFR(b.brut)}
-                      </td>
-                      <td className="tnum text-foreground px-4 py-3 text-right text-[13px] font-extrabold">
-                        {formatNumberFR(b.net)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusPill
-                          variant={b.paid ? "success" : "warning"}
-                          uppercase
-                        >
-                          {b.paid ? "Payé" : "En attente"}
-                        </StatusPill>
+                  {payslips.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-muted px-4 py-8 text-center text-[12.5px] font-semibold">
+                        Aucun bulletin pour {periode}. Générez la paie depuis la pré-paie.
                       </td>
                     </tr>
-                  ))}
+                  )}
+                  {payslips.map((b) => {
+                    const initials = b.agent
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((w) => w[0])
+                      .join("")
+                      .toUpperCase();
+                    return (
+                      <tr
+                        key={b.id}
+                        className="border-border hover:bg-hover border-b last:border-0"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="bg-active text-accent flex size-8 flex-none items-center justify-center rounded-lg text-[11px] font-extrabold">
+                              {initials}
+                            </span>
+                            <span className="text-foreground text-[13px] font-bold">
+                              {b.agent}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-muted px-4 py-3 text-[12px] font-semibold">
+                          {b.role}
+                        </td>
+                        <td className="tnum text-foreground px-4 py-3 text-right text-[13px] font-semibold">
+                          {formatNumberFR(b.gross)}
+                        </td>
+                        <td className="tnum text-foreground px-4 py-3 text-right text-[13px] font-extrabold">
+                          {formatNumberFR(b.net)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusPill variant={approved ? "success" : "warning"} uppercase>
+                            {approved ? "Approuvé" : "En attente"}
+                          </StatusPill>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -225,8 +168,7 @@ export function PayrollPaie() {
                 Détail de la masse salariale
               </div>
               <div className="text-muted mt-0.5 text-[12px] font-semibold">
-                Période · Juin 2026 — préparé par Awa N. (Comptabilité) · 52
-                agents · 14 sites
+                Période · {periode} — {payslips.length} agents
               </div>
             </div>
             <div className="border-border overflow-x-auto border-t">
@@ -244,7 +186,7 @@ export function PayrollPaie() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MASSE.map((m) => (
+                  {masse.map((m) => (
                     <tr key={m.poste} className="border-border border-b">
                       <td className="text-foreground px-4 py-3 text-[13px] font-bold">
                         {m.poste}
@@ -267,15 +209,11 @@ export function PayrollPaie() {
                       Total masse salariale brute
                     </td>
                     <td className="tnum text-foreground px-4 py-3 text-right text-[15px] font-extrabold">
-                      8 920 000 FCFA
+                      {formatNumberFR(totalBrut)} FCFA
                     </td>
                   </tr>
                 </tfoot>
               </table>
-            </div>
-            <div className="text-muted px-4 py-3 text-[11.5px] font-semibold">
-              Comparé à mai 2026 : <span className="text-success">+3,1 %</span>{" "}
-              (+270 000 FCFA)
             </div>
           </Card>
 
@@ -285,7 +223,7 @@ export function PayrollPaie() {
                 Total à valider
               </div>
               <div className="text-foreground mt-1 text-[24px] font-extrabold tracking-[-0.5px]">
-                8 920 000 FCFA
+                {formatNumberFR(totalBrut)} FCFA
               </div>
               <div className="text-muted mt-1 text-[11.5px] font-semibold">
                 {approved
@@ -301,23 +239,10 @@ export function PayrollPaie() {
                 <>
                   <Button
                     className="mt-4 w-full"
-                    disabled={!canApprove}
-                    onClick={() => {
-                      approve();
-                      toast.success(
-                        "Masse salariale validée",
-                        "Transmise à la comptabilité pour paiement",
-                      );
-                    }}
+                    disabled={!canApprove || isPending}
+                    onClick={() => advance.mutate()}
                   >
                     Valider la masse salariale
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="mt-2 w-full"
-                    onClick={() => toast.info("Renvoyée pour correction")}
-                  >
-                    Renvoyer pour correction
                   </Button>
                   {!canApprove && (
                     <div className="text-muted mt-2 text-center text-[11px] font-semibold">
@@ -332,38 +257,7 @@ export function PayrollPaie() {
               <div className="text-muted mb-3 text-[10.5px] font-bold tracking-[0.6px]">
                 CIRCUIT D&apos;APPROBATION
               </div>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <RoleAvatar
-                    initials="AN"
-                    gradient={["#10B981", "#2D6BFF"]}
-                    size={36}
-                  />
-                  <div>
-                    <div className="text-foreground text-[13px] font-bold">
-                      Awa N.
-                    </div>
-                    <div className="text-muted text-[11px] font-semibold">
-                      Comptabilité · préparé
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <RoleAvatar
-                    initials="MD"
-                    gradient={["#8B5CF6", "#2D6BFF"]}
-                    size={36}
-                  />
-                  <div>
-                    <div className="text-foreground text-[13px] font-bold">
-                      M. Diallo
-                    </div>
-                    <div className="text-muted text-[11px] font-semibold">
-                      Directeur Général · approbation finale
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <CircuitStepper />
             </Card>
           </div>
         </div>

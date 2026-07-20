@@ -1,23 +1,34 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
-import { usePayrollStore } from "@/lib/store/payroll";
-import { toast } from "@/lib/toast";
-
-const STATS = [
-  { label: "Jours pointés", value: "1 248" },
-  { label: "Heures sup. validées", value: "214 h" },
-  { label: "Anomalies", value: "2", tone: "text-danger" },
-];
+import { usePayrollCycle } from "@/lib/hooks/use-payroll-cycle";
+import { fetchAttendance } from "@/lib/supabase/data/attendance";
 
 export function PayrollValidPresences() {
-  const stage = usePayrollStore((s) => s.stage);
-  const validate = usePayrollStore((s) => s.validate);
+  const { stage, advance, isPending } = usePayrollCycle();
+
+  const { data: attendance = [] } = useQuery({
+    queryKey: ["attendance"],
+    queryFn: fetchAttendance,
+  });
+  const pointes = attendance.filter(
+    (a) => a.status === "present" || a.status === "retard",
+  ).length;
+  const retards = attendance.filter((a) => a.status === "retard").length;
+  const anomalies = attendance.filter(
+    (a) => a.status === "absent" || a.status === "non_pointe",
+  ).length;
+  const STATS = [
+    { label: "Jours pointés", value: String(pointes) },
+    { label: "Retards", value: String(retards) },
+    { label: "Anomalies", value: String(anomalies), tone: anomalies > 0 ? "text-danger" : undefined },
+  ];
 
   const notSubmitted = stage === "brouillon";
   const validated = stage === "valide" || stage === "approuve";
@@ -25,25 +36,23 @@ export function PayrollValidPresences() {
 
   return (
     <ScreenContainer>
-      {/* Warning banner */}
-      <Card className="border-l-warning bg-warning/8 mb-4 flex items-center gap-3 border-l-[3px] p-4">
-        <AlertTriangle
-          className="text-warning size-5 flex-none"
-          strokeWidth={1.8}
-        />
-        <div>
-          <div className="text-foreground text-[13px] font-bold">
-            3 sites non couverts à régulariser avant validation
+      {anomalies > 0 && (
+        <Card className="border-l-warning bg-warning/8 mb-4 flex items-center gap-3 border-l-[3px] p-4">
+          <AlertTriangle className="text-warning size-5 flex-none" strokeWidth={1.8} />
+          <div>
+            <div className="text-foreground text-[13px] font-bold">
+              {anomalies} anomalie{anomalies !== 1 ? "s" : ""} de pointage à régulariser
+            </div>
+            <div className="text-muted text-[11.5px] font-semibold">
+              Absences ou pointages manquants sur la période.
+            </div>
           </div>
-          <div className="text-muted text-[11.5px] font-semibold">
-            Résidence Almadies, CBAO Indépendance, Eiffage chantier
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       <PageHeader
-        title="Validation des présences — Juin 2026 (Niveau 2)"
-        description="Paie soumise par Ndèye Fall · vérifier les présences avant transmission au DG"
+        title="Validation des présences (Niveau 2)"
+        description="Vérifier les présences avant transmission au DG"
         className="mb-4"
       />
 
@@ -88,14 +97,8 @@ export function PayrollValidPresences() {
       ) : (
         <Button
           className="w-full sm:w-auto"
-          disabled={!canValidate}
-          onClick={() => {
-            validate();
-            toast.success(
-              "Présences validées (Niveau 2)",
-              "Paie transmise au Directeur Général",
-            );
-          }}
+          disabled={!canValidate || isPending}
+          onClick={() => advance.mutate()}
         >
           Valider les présences &amp; transmettre au DG
         </Button>

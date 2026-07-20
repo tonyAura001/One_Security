@@ -1,7 +1,8 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { usePayrollStore, type PayrollStage } from "@/lib/store/payroll";
+import { usePayrollCycle } from "@/lib/hooks/use-payroll-cycle";
+import type { PayrollStage } from "@/lib/supabase/data/cycle-paie";
 import { cn } from "@/lib/utils";
 
 const STEPS: {
@@ -12,19 +13,19 @@ const STEPS: {
 }[] = [
   {
     n: 1,
-    title: "Niveau 1 — Responsable Paie (Ndèye Fall)",
+    title: "Niveau 1 — Responsable Paie",
     detail: "Préparation & soumission",
     reachedAt: "soumis",
   },
   {
     n: 2,
-    title: "Niveau 2 — Chef de contrôle (Cheikh Guèye)",
+    title: "Niveau 2 — Chef de contrôle",
     detail: "Validation des présences",
     reachedAt: "valide",
   },
   {
     n: 3,
-    title: "Niveau 3 — Directeur Général (M. Diallo)",
+    title: "Niveau 3 — Directeur Général",
     detail: "Approbation finale & paiement",
     reachedAt: "approuve",
   },
@@ -39,7 +40,7 @@ const RANK: Record<PayrollStage, number> = {
 
 /** Visual state machine for the 3-level payroll circuit. */
 export function CircuitStepper() {
-  const stage = usePayrollStore((s) => s.stage);
+  const { stage } = usePayrollCycle();
   const rank = RANK[stage];
 
   return (

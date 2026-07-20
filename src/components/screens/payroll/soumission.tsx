@@ -1,33 +1,33 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { usePayrollStore } from "@/lib/store/payroll";
-import { toast } from "@/lib/toast";
+import { usePayrollCycle } from "@/lib/hooks/use-payroll-cycle";
+import { fetchPayslips } from "@/lib/supabase/data/payroll";
+import { currentPeriode } from "@/lib/supabase/data/cycle-paie";
+import { formatNumberFR } from "@/lib/format";
 import { CircuitStepper } from "./circuit-stepper";
 
 export function PayrollSoumission() {
-  const stage = usePayrollStore((s) => s.stage);
-  const submit = usePayrollStore((s) => s.submit);
-  const reset = usePayrollStore((s) => s.reset);
+  const { stage, advance, isPending } = usePayrollCycle();
   const submitted = stage !== "brouillon";
+  const periode = currentPeriode();
+  const { data: payslips = [] } = useQuery({
+    queryKey: ["payslips", periode],
+    queryFn: () => fetchPayslips(periode),
+  });
+  const masseNette = payslips.reduce((s, p) => s + p.net, 0);
 
   return (
     <ScreenContainer>
       <PageHeader
-        title="Soumission de la paie — Juin 2026"
+        title={`Soumission de la paie — ${periode}`}
         description="Circuit de validation à 3 niveaux (RBAC)"
         className="mb-4"
-        actions={
-          submitted ? (
-            <Button variant="ghost" size="sm" onClick={reset}>
-              Réinitialiser la démo
-            </Button>
-          ) : undefined
-        }
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
@@ -42,7 +42,7 @@ export function PayrollSoumission() {
                 Masse salariale nette
               </span>
               <span className="text-foreground text-[17px] font-extrabold">
-                7 682 000 FCFA
+                {formatNumberFR(masseNette)} FCFA
               </span>
             </div>
             <div className="mt-2 flex items-baseline justify-between">
@@ -50,19 +50,13 @@ export function PayrollSoumission() {
                 Effectif
               </span>
               <span className="text-foreground text-[15px] font-extrabold">
-                52 agents
+                {payslips.length} agent{payslips.length !== 1 ? "s" : ""}
               </span>
             </div>
             <Button
               className="mt-4 w-full"
-              disabled={submitted}
-              onClick={() => {
-                submit();
-                toast.success(
-                  "Paie soumise au circuit de validation",
-                  "Transmise au Chef de contrôle (Niveau 2)",
-                );
-              }}
+              disabled={submitted || isPending}
+              onClick={() => advance.mutate()}
             >
               {submitted ? "Paie soumise ✓" : "Soumettre la paie (Niveau 1)"}
             </Button>
