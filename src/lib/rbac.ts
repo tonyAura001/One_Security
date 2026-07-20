@@ -254,16 +254,10 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "notifications", label: "Notifications", icon: "bell" },
         ],
       },
-      {
-        label: "Boutique & Caisse",
-        icon: "box",
-        children: [
-          { key: "catalogue", label: "Catalogue équipements", icon: "box" },
-          { key: "stock", label: "Gestion du stock", icon: "box" },
-          { key: "recus", label: "Reçus", icon: "receipt" },
-          { key: "cloture", label: "Clôture journalière", icon: "lock" },
-        ],
-      },
+      // Module Boutique & Caisse (catalogue/stock/reçus/clôture/POS) : masqué
+      // pour l'instant — à développer ultérieurement. Le code et les tables
+      // restent en place ; réactiver en rétablissant ce groupe de menu + les
+      // clés dans FUNCTIONAL_SCREENS.
       GRP_ADMIN,
     ],
   },
@@ -773,11 +767,8 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "validpresences",
   "paie",
   "approbation",
-  // Boutique / caisse
-  "catalogue",
-  "stock",
-  "recus",
-  "cloture",
+  // Boutique / caisse (catalogue/stock/reçus/clôture/POS) : MASQUÉ pour
+  // l'instant — module à développer ultérieurement (code + tables conservés).
   // Communication
   "veille",
   // Communication

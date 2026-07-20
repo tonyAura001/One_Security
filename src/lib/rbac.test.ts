@@ -50,7 +50,12 @@ describe("RBAC — contrôle d'accès", () => {
   it("les écrans non câblés sont bloqués pour TOUS (y compris DG)", () => {
     const hidden: ScreenKey[] = [
       "bibliotheque",
+      // Module boutique/caisse masqué (à développer ultérieurement)
       "pos",
+      "catalogue",
+      "stock",
+      "recus",
+      "cloture",
     ];
     for (const role of ROLE_ORDER) {
       for (const key of hidden) {
