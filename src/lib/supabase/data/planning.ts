@@ -1,4 +1,8 @@
-/** Planning des rondes via Supabase (RLS ops). RondeAgent → type UI Shift. */
+/**
+ * Planning des vacations via Supabase. Modèle unifié : table `Vacation`
+ * (créneau planifié d'un agent sur un site) — distincte de RondeAgent (ronde
+ * de contrôle). RLS ops. Vacation → type UI `Shift`.
+ */
 import { createClient } from "@/lib/supabase/client";
 import type { Shift } from "@/lib/api/types";
 
@@ -9,10 +13,11 @@ interface Person {
   prenom: string;
   nom: string | null;
 }
-interface DbRonde {
+interface DbVacation {
   id: string;
   debut: string | null;
   fin: string | null;
+  type: string;
   AgentSecurite: Person | Person[] | null;
   Site: Named | Named[] | null;
 }
@@ -23,20 +28,15 @@ function hhmm(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
-function typeFrom(start: string): Shift["type"] {
-  const h = parseInt(start.slice(0, 2), 10);
-  if (h >= 19 || h < 5) return "nuit";
-  if (h >= 12) return "renfort";
-  return "jour";
-}
+
 export async function fetchShifts(): Promise<Shift[]> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("RondeAgent")
-    .select("id,debut,fin,AgentSecurite(prenom,nom),Site(nom)")
+    .from("Vacation")
+    .select("id,debut,fin,type,AgentSecurite(prenom,nom),Site(nom)")
     .not("debut", "is", null);
   if (error) throw error;
-  return (data as unknown as DbRonde[]).map((r) => {
+  return (data as unknown as DbVacation[]).map((r) => {
     const u = one(r.AgentSecurite);
     const s = one(r.Site);
     const start = r.debut ? hhmm(r.debut) : "00:00";
@@ -48,7 +48,7 @@ export async function fetchShifts(): Promise<Shift[]> {
       day: (jsDay + 6) % 7,
       start,
       end: r.fin ? hhmm(r.fin) : "",
-      type: typeFrom(start),
+      type: (r.type as Shift["type"]) ?? "jour",
     };
   });
 }
@@ -81,7 +81,7 @@ function dateForWeekday(day: number): Date {
   return d;
 }
 
-/** Affecte une vacation à un agent (RLS ronde_insert : DG/RP/MANAGER/CONTROLEUR). */
+/** Affecte une vacation à un agent (RLS vacation_insert : DG/RP/MANAGER/CONTROLEUR). */
 export async function createShift(i: NewShiftInput): Promise<void> {
   const supabase = createClient();
   const [sh, eh] = SHIFT_HOURS[i.type];
@@ -92,12 +92,13 @@ export async function createShift(i: NewShiftInput): Promise<void> {
   fin.setHours(eh, 0, 0, 0);
   if (i.type === "nuit") fin.setDate(fin.getDate() + 1); // fin le lendemain matin
   const { data, error } = await supabase
-    .from("RondeAgent")
+    .from("Vacation")
     .insert({
       agentId: i.agentId,
       siteId: i.siteId || null,
       debut: debut.toISOString(),
       fin: fin.toISOString(),
+      type: i.type,
     } as never)
     .select("id");
   if (error) throw error;
