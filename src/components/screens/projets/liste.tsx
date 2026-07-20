@@ -147,6 +147,7 @@ export function ProjetsListe() {
           data={projects}
           searchable
           searchPlaceholder="Rechercher un déploiement, un site…"
+          exportFilename="projets-deploiements"
           onRowClick={(p) => router.push(`/projets/${p.id}`)}
           emptyTitle="Aucun déploiement"
           emptyDescription="Créez un premier déploiement de dispositif."

@@ -203,6 +203,7 @@ export function AgentsScreen() {
           data={agents}
           searchable
           searchPlaceholder="Rechercher un agent, un matricule…"
+          exportFilename="agents-securite"
           toolbar={
             <div className="flex flex-wrap items-center gap-2">
               <Segmented

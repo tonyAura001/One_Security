@@ -159,6 +159,7 @@ export function ContratsScreen() {
           data={contracts}
           searchable
           searchPlaceholder="Rechercher un contrat, un client…"
+          exportFilename="contrats"
           onRowClick={(c) => setSelected(c)}
           emptyTitle="Aucun contrat"
           emptyDescription="Créez un premier contrat de prestation."

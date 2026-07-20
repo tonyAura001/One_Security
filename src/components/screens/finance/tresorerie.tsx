@@ -271,6 +271,7 @@ export function TresorerieScreen() {
           data={movements}
           searchable
           searchPlaceholder="Rechercher un mouvement…"
+          exportFilename="mouvements-tresorerie"
           emptyTitle="Aucun mouvement"
           emptyDescription="Aucun mouvement de trésorerie sur la période."
         />

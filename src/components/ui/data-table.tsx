@@ -15,10 +15,12 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   Search,
 } from "lucide-react";
 import { EmptyState } from "./empty-state";
+import { downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData, TValue> {
@@ -33,6 +35,8 @@ interface DataTableProps<TData, TValue> {
   emptyDescription?: string;
   /** Extra toolbar content (filters) rendered next to the search box. */
   toolbar?: React.ReactNode;
+  /** When set, show an “Exporter” button that downloads the filtered rows as CSV/Excel. */
+  exportFilename?: string;
   /** Make rows clickable (navigation). Adds pointer + keyboard activation. */
   onRowClick?: (row: TData) => void;
   /** Below md, render stacked label/value cards instead of the table (default true). */
@@ -50,6 +54,7 @@ export function DataTable<TData, TValue>({
   emptyTitle = "Aucun résultat",
   emptyDescription = "Aucune donnée à afficher pour le moment.",
   toolbar,
+  exportFilename,
   onRowClick,
   mobileCards = true,
 }: DataTableProps<TData, TValue>) {
@@ -71,9 +76,24 @@ export function DataTable<TData, TValue>({
 
   const rows = table.getRowModel().rows;
 
+  function handleExport() {
+    const cols = table.getVisibleLeafColumns().filter((c) => c.accessorFn);
+    const header = cols.map((c) =>
+      typeof c.columnDef.header === "string" ? c.columnDef.header : c.id,
+    );
+    const body = table.getFilteredRowModel().rows.map((r) =>
+      cols.map((c) => {
+        const v = r.getValue(c.id);
+        if (v == null) return "";
+        return typeof v === "object" ? JSON.stringify(v) : (v as string | number);
+      }),
+    );
+    downloadCsv(exportFilename ?? "export", [header, ...body]);
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      {(searchable || toolbar) && (
+      {(searchable || toolbar || exportFilename) && (
         <div className="flex flex-wrap items-center gap-2">
           {searchable && (
             <div className="border-border bg-surface2 flex min-w-[220px] flex-1 items-center gap-2.5 rounded-[10px] border px-3 py-2">
@@ -88,6 +108,18 @@ export function DataTable<TData, TValue>({
             </div>
           )}
           {toolbar}
+          {exportFilename && (
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={isLoading || data.length === 0}
+              className="border-border bg-surface2 text-foreground hover:bg-hover flex items-center gap-1.5 rounded-[10px] border px-3 py-2 text-[12px] font-bold transition-colors disabled:pointer-events-none disabled:opacity-40"
+              title="Exporter au format Excel (CSV)"
+            >
+              <Download className="size-3.5" strokeWidth={2.2} />
+              Exporter
+            </button>
+          )}
         </div>
       )}
 

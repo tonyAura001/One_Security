@@ -157,6 +157,7 @@ export function CaissierStock() {
         data={rows}
         searchable
         searchPlaceholder="Rechercher un article…"
+        exportFilename="stock-boutique"
         pageSize={10}
         emptyTitle="Aucun article"
         emptyDescription="Le catalogue de stock est vide."

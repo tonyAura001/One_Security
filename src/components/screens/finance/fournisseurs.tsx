@@ -140,6 +140,7 @@ export function FournisseursScreen() {
           data={suppliers}
           searchable
           searchPlaceholder="Rechercher un fournisseur…"
+          exportFilename="fournisseurs"
           emptyTitle="Aucun fournisseur"
           emptyDescription="Ajoutez vos fournisseurs pour suivre les encours."
         />
