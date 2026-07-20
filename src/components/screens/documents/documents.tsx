@@ -134,6 +134,9 @@ function emptyData(type: DocumentType): DocumentData {
       return emptyCommunique();
     case "fiche_engagement":
       return emptyFiche();
+    case "contrat":
+      // Les contrats ont leur éditeur dédié (ContratEditor) ; non éditables ici.
+      return { html: "" };
   }
 }
 
@@ -265,11 +268,13 @@ export function DocumentsScreen() {
             value={newType}
             onChange={(e) => setNewType(e.target.value as DocumentType)}
           >
-            {(Object.keys(DOC_TYPE_LABEL) as DocumentType[]).map((t) => (
-              <option key={t} value={t}>
-                {DOC_TYPE_LABEL[t]}
-              </option>
-            ))}
+            {(Object.keys(DOC_TYPE_LABEL) as DocumentType[])
+              .filter((t) => t !== "contrat") // éditeur dédié (ContratEditor)
+              .map((t) => (
+                <option key={t} value={t}>
+                  {DOC_TYPE_LABEL[t]}
+                </option>
+              ))}
           </select>
           <Button size="sm" onClick={() => startNew(newType)}>
             <Plus className="size-4" /> Nouveau

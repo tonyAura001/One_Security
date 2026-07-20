@@ -3,6 +3,7 @@
 export type DocumentType =
   | "devis"
   | "facture_proforma"
+  | "contrat"
   | "rapport"
   | "fiche_engagement"
   | "communique";
@@ -10,6 +11,7 @@ export type DocumentType =
 export const DOC_TYPE_LABEL: Record<DocumentType, string> = {
   devis: "Devis",
   facture_proforma: "Facture proforma",
+  contrat: "Contrat de prestation",
   rapport: "Rapport de sécurité",
   fiche_engagement: "Fiche d'engagement",
   communique: "Communiqué officiel",

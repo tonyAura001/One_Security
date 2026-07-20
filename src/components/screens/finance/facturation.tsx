@@ -17,7 +17,7 @@ import { fetchContracts } from "@/lib/supabase/data/contracts";
 import { fetchQuotes } from "@/lib/supabase/data/quotes";
 import { FactureEditor } from "./facture-editor";
 import { DevisEditor } from "./devis-editor";
-import { NewContractDialog } from "./new-contract-dialog";
+import { ContratEditor } from "./contrat-editor";
 import type {
   Contract,
   ContractStatus,
@@ -222,6 +222,7 @@ export function FinanceFacturation() {
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [creatingQuote, setCreatingQuote] = useState(false);
+  const [creatingContract, setCreatingContract] = useState(false);
 
   // Factures réelles via Supabase (RLS finance).
   const { data } = useQuery({
@@ -267,6 +268,10 @@ export function FinanceFacturation() {
 
   if (creatingQuote) {
     return <DevisEditor onClose={() => setCreatingQuote(false)} />;
+  }
+
+  if (creatingContract) {
+    return <ContratEditor onClose={() => setCreatingContract(false)} />;
   }
 
   const invoiceColumns = makeInvoiceColumns(setEditingInvoiceId);
@@ -334,7 +339,12 @@ export function FinanceFacturation() {
               Nouveau devis
             </Button>
           )}
-          {tab === "contrats" && <NewContractDialog />}
+          {tab === "contrats" && (
+            <Button size="sm" onClick={() => setCreatingContract(true)}>
+              <Plus className="size-3.5" strokeWidth={2.4} />
+              Nouveau contrat
+            </Button>
+          )}
         </div>
 
         {tab === "factures" && (
