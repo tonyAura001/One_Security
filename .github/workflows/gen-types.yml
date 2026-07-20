@@ -1,0 +1,56 @@
+name: Générer les types Supabase
+
+# Régénère src/lib/supabase/database.types.ts depuis le schéma distant Supabase
+# (mode remote --project-id : PAS besoin de Docker).
+#
+# Prérequis : un secret GitHub `SUPABASE_ACCESS_TOKEN` = Personal Access Token
+# Supabase (format sbp_...), généré sur https://supabase.com/dashboard/account/tokens
+# (⚠️ PAS la clé service_role).
+#
+# Déclenchement manuel (Actions → « Générer les types Supabase » → Run workflow).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SUPABASE_PROJECT_ID: wypoifuwyylvbzuwmuct
+
+jobs:
+  gen-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier le token
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "::error::Secret SUPABASE_ACCESS_TOKEN manquant (Personal Access Token sbp_...)."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Générer les types (remote, sans Docker)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase gen types typescript \
+            --project-id "$SUPABASE_PROJECT_ID" \
+            > src/lib/supabase/database.types.ts
+
+      - name: Commit si changement
+        run: |
+          if ! git diff --quiet src/lib/supabase/database.types.ts; then
+            git config user.name  "supabase-types-bot"
+            git config user.email "bot@pilotepme.local"
+            git add src/lib/supabase/database.types.ts
+            git commit -m "chore(types): régénération des types Supabase"
+            git push
+          else
+            echo "Types déjà à jour."
+          fi
