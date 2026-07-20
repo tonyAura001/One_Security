@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NewTicketDialog } from "./new-ticket-dialog";
+import { PreventivePlans } from "./preventive-plans";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KanbanBoard, type KanbanColumn } from "@/components/ui/kanban-board";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
@@ -53,6 +54,8 @@ export function MaintenanceTickets() {
 
   return (
     <ScreenContainer>
+      <PreventivePlans />
+
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="text-muted text-[11px] font-bold tracking-[0.7px]">
           TICKETS DE MAINTENANCE · PAR CRITICITÉ
