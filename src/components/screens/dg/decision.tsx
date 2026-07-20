@@ -1,341 +1,166 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Building2, Check, FileText, Info, Send, User, X } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Gavel, Plus } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
-import { Card, Button, Badge } from "@/aurantir-front-kit";
-import { formatRelativeTime } from "@/aurantir-front-kit/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import {
-  useDecisionsStore,
-  CATEGORY_META,
-  type Decision,
-  type DecisionCategory,
-} from "@/lib/store/decisions";
-import { usePayrollStore } from "@/lib/store/payroll";
-import { formatFCFA } from "@/lib/format";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
-import { cn } from "@/lib/utils";
+import { formatDateFR } from "@/lib/format";
+import { fetchContenus, createContenu, updateContenu } from "@/lib/supabase/data/contenu";
 
-type TabKey = "toutes" | DecisionCategory;
-const TABS: [TabKey, string][] = [
-  ["toutes", "Toutes"],
-  ["financiere", "Financières"],
-  ["rh", "RH"],
-  ["contrat", "Contrats"],
-  ["operationnelle", "Opérationnelles"],
+const CATEGORIES: { v: string; l: string; variant: PillVariant }[] = [
+  { v: "strategie", l: "Stratégie", variant: "info" },
+  { v: "finance", l: "Finance", variant: "violet" },
+  { v: "rh", l: "RH", variant: "warning" },
+  { v: "operations", l: "Opérations", variant: "success" },
 ];
 
+const field =
+  "w-full rounded-[10px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
+const label = "text-muted mb-1 block text-[11px] font-bold tracking-[0.4px] uppercase";
+
 export function DecisionScreen() {
-  const { decisions, validate, refuse, requestInfo, resolvedBase } =
-    useDecisionsStore();
-  const approvePayroll = usePayrollStore((s) => s.approve);
-  const [tab, setTab] = useState<TabKey>("toutes");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<string>("toutes");
+  const { data: decisions = [] } = useQuery({
+    queryKey: ["contenu", "decision"],
+    queryFn: () => fetchContenus("decision"),
+  });
+  const filtered = tab === "toutes" ? decisions : decisions.filter((d) => d.categorie === tab);
 
-  const pending = decisions.filter((d) => d.status === "en_attente");
-  const urgent = pending.filter((d) => d.priority === "urgente").length;
-  const resolved =
-    resolvedBase + decisions.filter((d) => d.status !== "en_attente").length;
-
-  const list = useMemo(
-    () => pending.filter((d) => tab === "toutes" || d.category === tab),
-    [pending, tab],
-  );
-
-  const selected =
-    decisions.find((d) => d.id === selectedId && d.status === "en_attente") ??
-    list[0] ??
-    null;
-
-  function onValidate(d: Decision) {
-    validate(d.id);
-    if (d.id === "d-paie") approvePayroll();
-    toast.success("Décision validée", d.title);
-    setSelectedId(null);
-  }
-  function onRefuse(d: Decision) {
-    refuse(d.id);
-    toast.error("Décision refusée", d.title);
-    setSelectedId(null);
-  }
+  const validate = useMutation({
+    mutationFn: (id: string) => updateContenu(id, { statut: "validee" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contenu", "decision"] });
+      toast.success("Décision validée");
+    },
+    onError: () => toast.error("Action refusée (accès requis)."),
+  });
 
   return (
     <ScreenContainer>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Centre de Décision</h1>
-          <p className="page-subtitle">
-            {pending.length} en attente · {urgent} urgentes · {resolved}{" "}
-            résolues ce mois
-          </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {[{ v: "toutes", l: "Toutes" }, ...CATEGORIES].map((c) => (
+            <button
+              key={c.v}
+              onClick={() => setTab(c.v)}
+              className={`rounded-[9px] px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                tab === c.v ? "bg-accent/14 text-accent" : "text-muted hover:bg-hover"
+              }`}
+            >
+              {c.l}
+            </button>
+          ))}
         </div>
+        <NewDecisionDialog />
       </div>
 
-      {/* Onglets */}
-      <div
-        role="tablist"
-        aria-label="Catégories de décisions"
-        className="border-surface-border mt-4 flex flex-wrap items-center gap-1 border-b"
-      >
-        {TABS.map(([v, l]) => (
-          <button
-            key={v}
-            role="tab"
-            aria-selected={tab === v}
-            onClick={() => setTab(v)}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              tab === v
-                ? "border-blue text-text-primary"
-                : "text-text-muted hover:text-text-primary border-transparent",
-            )}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
-        {/* Liste des décisions en attente */}
-        <div className="space-y-3">
-          {list.length === 0 ? (
-            <Card>
-              <div className="text-text-muted flex flex-col items-center py-10 text-center">
-                <Check className="text-green mb-2 size-7" />
-                <p className="text-sm">Aucune décision en attente</p>
-              </div>
-            </Card>
-          ) : (
-            list.map((d) => {
-              const cat = CATEGORY_META[d.category];
-              const active = selected?.id === d.id;
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => setSelectedId(d.id)}
-                  className={cn(
-                    "border-surface-border bg-surface w-full rounded-xl border p-4 text-left transition-all",
-                    active
-                      ? "border-blue/40 ring-blue/20 ring-1"
-                      : "hover:border-surface-border-hover",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant={d.priority === "urgente" ? "red" : "amber"}>
-                      {d.priority === "urgente" ? "Urgente" : "Normale"}
-                    </Badge>
-                    <Badge
-                      variant={
-                        cat.variant === "info"
-                          ? "blue"
-                          : cat.variant === "success"
-                            ? "green"
-                            : cat.variant === "violet"
-                              ? "violet"
-                              : "amber"
-                      }
-                    >
-                      {cat.label}
-                    </Badge>
-                  </div>
-                  <p className="text-text-primary mt-2 text-sm font-semibold">
-                    {d.title}
-                  </p>
-                  <p className="text-text-muted mt-0.5 flex items-center gap-1.5 text-xs">
-                    <Building2 size={12} /> {d.entity}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span
-                      className="text-text-muted text-2xs"
-                      suppressHydrationWarning
-                    >
-                      {d.requester} · {formatRelativeTime(d.requestedAt)}
-                    </span>
-                    {d.amount != null && (
-                      <span className="text-text-primary text-xs font-bold">
-                        {formatFCFA(d.amount)}
+      {filtered.length === 0 ? (
+        <EmptyState icon={Gavel} title="Aucune décision" description="Consignez une décision de direction." />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filtered.map((d) => {
+            const cat = CATEGORIES.find((c) => c.v === d.categorie);
+            const validated = d.statut === "validee";
+            return (
+              <Card key={d.id} className="p-[16px_18px]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-foreground text-[14px] font-extrabold tracking-[-0.2px]">
+                        {d.titre}
                       </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-
-        {/* Panneau détail */}
-        {selected ? (
-          <Card className="lg:sticky lg:top-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={selected.priority === "urgente" ? "red" : "amber"}
-                    dot
-                  >
-                    {selected.priority === "urgente" ? "Urgente" : "Normale"}
-                  </Badge>
-                  <Badge variant="blue">
-                    {CATEGORY_META[selected.category].label}
-                  </Badge>
-                </div>
-                <h2 className="text-text-primary mt-2 text-lg font-semibold">
-                  {selected.title}
-                </h2>
-              </div>
-              {selected.amount != null && (
-                <div className="text-right">
-                  <p className="text-2xs text-text-muted">Montant</p>
-                  <p className="text-text-primary text-lg font-bold">
-                    {formatFCFA(selected.amount)}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Meta
-                icon={<User size={13} />}
-                label="Demandeur"
-                value={selected.requester}
-              />
-              <Meta
-                icon={<Building2 size={13} />}
-                label="Entité"
-                value={selected.entity}
-              />
-            </div>
-
-            <div className="mt-4">
-              <p className="text-text-muted mb-1 text-xs font-medium">
-                Contexte
-              </p>
-              <p className="text-text-secondary text-sm leading-relaxed">
-                {selected.context}
-              </p>
-            </div>
-
-            {selected.attachment && (
-              <div className="border-surface-border bg-background-elevated mt-4 flex items-center gap-3 rounded-lg border p-3">
-                <div className="bg-red/10 text-red flex size-9 items-center justify-center rounded-lg">
-                  <FileText size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-text-primary truncate text-xs font-medium">
-                    {selected.attachment}
-                  </p>
-                  <p className="text-2xs text-text-muted">
-                    Aperçu du justificatif
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    toast.info("Aperçu PDF", "Fonction de démonstration")
-                  }
-                >
-                  Ouvrir
-                </Button>
-              </div>
-            )}
-
-            {/* Historique */}
-            <div className="mt-5">
-              <p className="text-text-muted mb-2 text-xs font-medium">
-                Historique
-              </p>
-              <ol className="space-y-2.5">
-                {selected.history.map((h, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span
-                      className={cn(
-                        "mt-0.5 size-2.5 flex-shrink-0 rounded-full",
-                        h.done ? "bg-green" : "border-text-muted border-2",
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-text-primary text-xs">{h.label}</p>
-                      <p
-                        className="text-2xs text-text-muted"
-                        suppressHydrationWarning
-                      >
-                        {formatRelativeTime(h.at)}
-                      </p>
+                      {cat && <StatusPill variant={cat.variant} uppercase>{cat.l}</StatusPill>}
+                      <StatusPill variant={validated ? "success" : "warning"} uppercase>
+                        {validated ? "Validée" : "En attente"}
+                      </StatusPill>
                     </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            {/* Actions */}
-            <div className="border-surface-border mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
-              <Button
-                icon={<Check size={15} />}
-                onClick={() => onValidate(selected)}
-                className="flex-1"
-              >
-                Valider la décision
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                icon={<X size={14} />}
-                onClick={() => onRefuse(selected)}
-              >
-                Refuser
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Info size={14} />}
-                onClick={() => {
-                  requestInfo(selected.id);
-                  toast.info("Complément demandé", selected.requester);
-                }}
-              >
-                Info
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Send size={14} />}
-                onClick={() =>
-                  toast.info("Décision déléguée", "Fonction de démonstration")
-                }
-              >
-                Déléguer
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <Card>
-            <div className="text-text-muted flex flex-col items-center py-16 text-center">
-              <Check className="text-green mb-3 size-8" />
-              <p className="text-sm">Toutes les décisions sont traitées</p>
-            </div>
-          </Card>
-        )}
-      </div>
+                    {d.corps && <p className="text-muted mt-1.5 text-[12.5px] leading-[1.5]">{d.corps}</p>}
+                    <div className="text-muted mt-2 text-[10.5px] font-semibold">
+                      {d.auteur} · {formatDateFR(d.createdAt, "d MMM yyyy")}
+                    </div>
+                  </div>
+                  {!validated && (
+                    <Button size="xs" variant="outline" disabled={validate.isPending} onClick={() => validate.mutate(d.id)}>
+                      Valider
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </ScreenContainer>
   );
 }
 
-function Meta({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function NewDecisionDialog() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [titre, setTitre] = useState("");
+  const [categorie, setCategorie] = useState("strategie");
+  const [corps, setCorps] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => createContenu({ type: "decision", titre, categorie, corps }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contenu", "decision"] });
+      toast.success("Décision consignée");
+      setTitre("");
+      setCorps("");
+      setCategorie("strategie");
+      setOpen(false);
+    },
+    onError: (e: unknown) => toast.error(`Échec : ${e instanceof Error ? e.message : String(e)}`),
+  });
+
+  const valid = titre.trim().length > 0;
+
   return (
-    <div className="border-surface-border bg-background-elevated rounded-lg border p-2.5">
-      <p className="text-2xs text-text-muted flex items-center gap-1">
-        {icon} {label}
-      </p>
-      <p className="text-text-primary mt-0.5 text-xs font-medium">{value}</p>
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="size-4" /> Nouvelle décision</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-[460px]">
+        <DialogHeader><DialogTitle>Nouvelle décision</DialogTitle></DialogHeader>
+        <form onSubmit={(e) => { e.preventDefault(); if (valid) mutation.mutate(); }} className="flex flex-col gap-3.5">
+          <div>
+            <label className={label}>Objet *</label>
+            <input className={field} value={titre} onChange={(e) => setTitre(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <label className={label}>Catégorie</label>
+            <select className={field} value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+              {CATEGORIES.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={label}>Détail</label>
+            <textarea className={`${field} min-h-[90px] resize-y`} value={corps} onChange={(e) => setCorps(e.target.value)} />
+          </div>
+          <DialogFooter className="mt-1">
+            <DialogClose asChild><Button type="button" variant="outline" size="sm">Annuler</Button></DialogClose>
+            <Button type="submit" size="sm" disabled={!valid || mutation.isPending}>
+              {mutation.isPending ? "…" : "Consigner"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

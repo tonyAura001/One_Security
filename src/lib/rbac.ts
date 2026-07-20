@@ -154,6 +154,7 @@ const GRP_FINANCE: MenuItem = {
     { key: "budget", label: "Budget", icon: "chart" },
     { key: "finance", label: "Factures", icon: "receipt" },
     { key: "devisform", label: "Devis", icon: "doc" },
+    { key: "contratedit", label: "Éditeur de contrat", icon: "doc" },
     { key: "relances", label: "Paiements & Relances", icon: "bell" },
     { key: "fournisseurs", label: "Fournisseurs", icon: "box" },
     { key: "exportpaie", label: "Export paie bancaire", icon: "upload" },
@@ -542,6 +543,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "budget", label: "Budget", icon: "chart" },
           { key: "finance", label: "Factures", icon: "receipt" },
           { key: "devisform", label: "Devis", icon: "doc" },
+          { key: "contratedit", label: "Éditeur de contrat", icon: "doc" },
           { key: "relances", label: "Paiements & Relances", icon: "bell" },
           { key: "exportpaie", label: "Export paie bancaire", icon: "upload" },
           { key: "fournisseurs", label: "Fournisseurs", icon: "box" },
@@ -703,6 +705,8 @@ const UNIVERSAL: ScreenKey[] = ["parametres"];
 const COMMON_MENU: MenuItem[] = [
   { key: "documents", label: "Documents", icon: "doc" },
   { key: "taches", label: "Tâches", icon: "check" },
+  { key: "notes", label: "Notes", icon: "doc" },
+  { key: "reunions", label: "Réunions", icon: "calendar" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
 ];
@@ -759,6 +763,11 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "projets",
   "reclamations",
   "messagerie",
+  // Espace de travail / direction (contenu interne)
+  "notes",
+  "reunions",
+  "decision",
+  "diffusion",
   // Documents
   "documents",
   // Administration / système

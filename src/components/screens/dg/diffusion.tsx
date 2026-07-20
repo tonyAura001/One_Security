@@ -1,172 +1,119 @@
 "use client";
 
 import { useState } from "react";
-import { Megaphone, Users } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Megaphone, Send } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
-import { Card, Button } from "@/aurantir-front-kit";
-import { formatRelativeTime } from "@/aurantir-front-kit/lib/utils";
-import {
-  AUDIENCE_LABEL,
-  RECENT_BROADCASTS,
-  type Audience,
-  type Broadcast,
-} from "@/lib/api/diffusion";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { StatusPill } from "@/components/ui/status-pill";
 import { toast } from "@/lib/toast";
+import { formatRelative } from "@/lib/format";
+import { fetchContenus, createContenu } from "@/lib/supabase/data/contenu";
 
-const AUDIENCES: Audience[] = ["entreprise", "site", "superviseurs", "agents"];
+const AUDIENCES: { v: string; l: string }[] = [
+  { v: "entreprise", l: "Toute l'entreprise" },
+  { v: "encadrement", l: "Encadrement" },
+  { v: "agents", l: "Agents de terrain" },
+  { v: "siege", l: "Personnel du siège" },
+];
+
+const field =
+  "w-full rounded-[10px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
+const label = "text-muted mb-1 block text-[11px] font-bold tracking-[0.4px] uppercase";
 
 export function DiffusionScreen() {
+  const qc = useQueryClient();
   const [subject, setSubject] = useState("");
-  const [audience, setAudience] = useState<Audience>("entreprise");
+  const [audience, setAudience] = useState("entreprise");
   const [message, setMessage] = useState("");
-  const [sent, setSent] = useState<Broadcast[]>(RECENT_BROADCASTS);
 
-  function diffuser(e: React.FormEvent) {
-    e.preventDefault();
-    if (!subject.trim() || !message.trim()) return;
-    const totals: Record<Audience, number> = {
-      entreprise: 52,
-      site: 18,
-      superviseurs: 9,
-      agents: 44,
-    };
-    const b: Broadcast = {
-      id: `b-${sent.length + 1}`,
-      subject: subject.trim(),
-      audience,
-      readCount: 0,
-      total: totals[audience],
-      sentAt: new Date().toISOString(),
-    };
-    setSent((s) => [b, ...s]);
-    setSubject("");
-    setMessage("");
-    toast.success("Diffusion envoyée", AUDIENCE_LABEL[audience]);
-  }
+  const { data: annonces = [] } = useQuery({
+    queryKey: ["contenu", "annonce"],
+    queryFn: () => fetchContenus("annonce"),
+  });
+
+  const send = useMutation({
+    mutationFn: () =>
+      createContenu({ type: "annonce", titre: subject, corps: message, categorie: audience }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contenu", "annonce"] });
+      toast.success("Annonce diffusée");
+      setSubject("");
+      setMessage("");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Échec : ${msg}`);
+    },
+  });
+
+  const valid = subject.trim() && message.trim();
 
   return (
     <ScreenContainer>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Diffusion interne</h1>
-          <p className="page-subtitle">
-            Communiquez avec vos équipes en un message
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        {/* Nouvelle diffusion */}
-        <Card>
-          <div className="flex items-center gap-2">
-            <div className="bg-blue/10 text-blue flex size-8 items-center justify-center rounded-lg">
-              <Megaphone size={16} />
-            </div>
-            <h2 className="text-text-primary text-base font-semibold">
-              Nouvelle diffusion
-            </h2>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
+        <Card className="p-5">
+          <div className="text-foreground mb-4 flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.3px]">
+            <Megaphone className="size-4" /> Nouvelle annonce
           </div>
-
-          <form className="mt-4 space-y-4" onSubmit={diffuser}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (valid) send.mutate();
+            }}
+            className="flex flex-col gap-3.5"
+          >
             <div>
-              <label className="text-text-secondary mb-1 block text-xs font-medium">
-                Objet
-              </label>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ex. Consignes de sécurité — week-end"
-                className="input w-full text-sm"
-              />
+              <label className={label}>Objet</label>
+              <input className={field} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex. Nouvelles consignes de sécurité" />
             </div>
-
             <div>
-              <label className="text-text-secondary mb-1 block text-xs font-medium">
-                Audience
-              </label>
-              <div className="flex flex-wrap gap-2">
+              <label className={label}>Audience</label>
+              <select className={field} value={audience} onChange={(e) => setAudience(e.target.value)}>
                 {AUDIENCES.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => setAudience(a)}
-                    aria-pressed={audience === a}
-                    className={
-                      audience === a
-                        ? "bg-blue/10 text-blue rounded-full px-3 py-1 text-xs font-medium"
-                        : "text-text-muted hover:bg-surface-hover rounded-full px-3 py-1 text-xs font-medium"
-                    }
-                  >
-                    {AUDIENCE_LABEL[a]}
-                  </button>
+                  <option key={a.v} value={a.v}>{a.l}</option>
                 ))}
-              </div>
+              </select>
             </div>
-
             <div>
-              <label className="text-text-secondary mb-1 block text-xs font-medium">
-                Message
-              </label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={5}
-                placeholder="Votre message à l'équipe…"
-                className="input w-full resize-none text-sm"
-              />
+              <label className={label}>Message</label>
+              <textarea className={`${field} min-h-[140px] resize-y`} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Rédigez votre annonce…" />
             </div>
-
-            <div className="flex items-center justify-between">
-              <p className="text-2xs text-text-muted">
-                Envoyé via push + email + tableau de bord
-              </p>
-              <Button type="submit" icon={<Megaphone size={14} />}>
-                Diffuser
-              </Button>
-            </div>
+            <Button type="submit" disabled={!valid || send.isPending}>
+              <Send className="size-4" />
+              {send.isPending ? "Diffusion…" : "Diffuser l'annonce"}
+            </Button>
           </form>
         </Card>
 
-        {/* Diffusions récentes */}
-        <div>
-          <p className="text-text-muted mb-2 text-[11px] font-semibold tracking-widest uppercase">
-            Diffusions récentes
-          </p>
-          <div className="space-y-2">
-            {sent.map((b) => {
-              const pct = Math.round((b.readCount / b.total) * 100);
-              return (
-                <Card key={b.id} padding="sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-text-primary text-sm font-semibold">
-                      {b.subject}
-                    </p>
-                    <span
-                      className="text-2xs text-text-muted flex-shrink-0"
-                      suppressHydrationWarning
-                    >
-                      {formatRelativeTime(b.sentAt)}
-                    </span>
-                  </div>
-                  <div className="text-2xs text-text-muted mt-1.5 flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1">
-                      <Users size={11} /> {AUDIENCE_LABEL[b.audience]}
-                    </span>
-                    <span>
-                      Lu par {b.readCount}/{b.total} ({pct}%)
-                    </span>
-                  </div>
-                  <div className="bg-surface-hover mt-2 h-1.5 overflow-hidden rounded-full">
-                    <div
-                      className="bg-green h-full rounded-full"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </Card>
-              );
-            })}
+        <Card className="p-5">
+          <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.6px]">
+            ANNONCES RÉCENTES · {annonces.length}
           </div>
-        </div>
+          {annonces.length === 0 ? (
+            <p className="text-muted text-[12.5px] font-semibold">Aucune annonce diffusée.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {annonces.map((a) => (
+                <div key={a.id} className="border-border bg-surface2 rounded-xl border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-foreground text-[12.5px] font-bold">{a.titre}</div>
+                    <StatusPill variant="info" uppercase>
+                      {AUDIENCES.find((x) => x.v === a.categorie)?.l ?? a.categorie ?? "—"}
+                    </StatusPill>
+                  </div>
+                  {a.corps && (
+                    <p className="text-muted mt-1 line-clamp-2 text-[11.5px] font-medium">{a.corps}</p>
+                  )}
+                  <div className="text-muted mt-1.5 text-[10.5px] font-semibold">
+                    {a.auteur} · {formatRelative(a.createdAt)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </ScreenContainer>
   );

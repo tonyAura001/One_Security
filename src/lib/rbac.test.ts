@@ -53,7 +53,6 @@ describe("RBAC — contrôle d'accès", () => {
       "satisfaction",
       "veille",
       "bibliotheque",
-      "notes",
       "pos",
       "cloture",
     ];
