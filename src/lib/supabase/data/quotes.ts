@@ -58,16 +58,17 @@ export interface NewQuoteInput {
   tauxTVA: number; // %
   statut: string; // enum StatutDevis
   dateEnvoi?: string | null;
+  numero?: string; // fourni par l'éditeur pour rester cohérent avec le PDF archivé
 }
 
-/** Crée un devis (RLS insert : DG/RP/MANAGER). */
-export async function createQuote(i: NewQuoteInput): Promise<void> {
+/** Crée un devis (RLS insert : DG/RP/MANAGER). Renvoie le numéro utilisé. */
+export async function createQuote(i: NewQuoteInput): Promise<string> {
   const supabase = createClient();
   const totalHT = Math.round(i.totalHT);
   const totalTTC = totalHT + Math.round((totalHT * i.tauxTVA) / 100);
-  const numero = `DEV-${new Date().getFullYear()}-${Date.now()
-    .toString()
-    .slice(-6)}`;
+  const numero =
+    i.numero?.trim() ||
+    `DEV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
   const { data, error } = await supabase
     .from("Devis")
     .insert({
@@ -82,4 +83,5 @@ export async function createQuote(i: NewQuoteInput): Promise<void> {
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("row-level security: création refusée (accès écriture).");
+  return numero;
 }
