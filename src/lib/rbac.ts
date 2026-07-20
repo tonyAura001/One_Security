@@ -737,6 +737,8 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   // RH / Recrutement
   "recrutement",
   "entretiens",
+  "contrattravail",
+  "onboarding",
   // Paie (circuit d'approbation à 3 niveaux)
   "prepaie",
   "soumission",
