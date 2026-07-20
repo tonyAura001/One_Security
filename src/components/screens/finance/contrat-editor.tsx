@@ -491,7 +491,11 @@ export function ContratEditor({ onClose }: { onClose: () => void }) {
 
       {/* Impression : n'imprime que le document. */}
       <style>{`
-        .contrat-body h1, .contrat-body h2 { color: var(--doc-navy); }
+        /* Papier toujours blanc → couleurs fixes (jamais les couleurs du thème). */
+        .contrat-body, .contrat-body p, .contrat-body li { color: #1f2937 !important; }
+        .contrat-body strong { color: #111827 !important; }
+        .contrat-body h1, .contrat-body h2, .contrat-body h3 { color: var(--doc-navy) !important; }
+        .contrat-body .ProseMirror { min-height: 400px; caret-color: var(--doc-navy); }
         @media print {
           body * { visibility: hidden !important; }
           #doc-print, #doc-print * { visibility: visible !important; }
