@@ -4,28 +4,40 @@ import type { ReactNode } from "react";
 
 import { OS_COLORS } from "@/lib/one-security";
 import { useCompanyIdentity } from "@/lib/documents/use-identity";
+import type { CompanyIdentity } from "@/lib/supabase/data/parametres";
 
 /**
  * Chrome partagé des documents A4 (en-tête, pied, cachet, page).
- * L'identité (nom, adresse, RCCM…) provient de `useCompanyIdentity` : défauts
- * du code surchargés par les réglages éditables par le DG (table Parametre).
- * Le logo est recréé en CSS/texte (aucun fichier image disponible).
+ * L'identité (nom, adresse, RCCM…), le LOGO, les COULEURS de marque et la
+ * SIGNATURE du dirigeant proviennent de `useCompanyIdentity` : défauts du code
+ * surchargés par les réglages éditables dans Paramètres (table Parametre).
+ * Sans logo uploadé, la marque « ONE » est recréée en CSS/texte.
  */
 
-/** Marque « ONE » réutilisée dans le logo et le cachet. */
-function OneMark({ size = 22 }: { size?: number }) {
+/** Marque « ONE » réutilisée dans le logo et le cachet (accent = couleur marque). */
+function OneMark({ size = 22, accent }: { size?: number; accent: string }) {
   return (
     <span
       className="font-black leading-none tracking-tight"
       style={{ fontSize: size, color: "#ffffff" }}
     >
-      O<span style={{ color: OS_COLORS.goldLight }}>N</span>E
+      O<span style={{ color: accent }}>N</span>E
     </span>
   );
 }
 
-/** Bloc logo : carré marine arrondi + barre or fine. */
-function LogoBlock() {
+/** Bloc logo : image uploadée, sinon carré marine arrondi + barre or fine. */
+function LogoBlock({ os }: { os: CompanyIdentity }) {
+  if (os.logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={os.logo}
+        alt={os.name}
+        style={{ maxWidth: 150, maxHeight: 72, objectFit: "contain" }}
+      />
+    );
+  }
   return (
     <div className="flex flex-col items-start">
       <div
@@ -33,11 +45,11 @@ function LogoBlock() {
         style={{
           width: 64,
           height: 64,
-          background: OS_COLORS.navy,
+          background: os.couleurPrincipale,
           border: `1px solid ${OS_COLORS.navyDark}`,
         }}
       >
-        <OneMark size={22} />
+        <OneMark size={22} accent={os.couleurAccent} />
         <span
           className="mt-0.5 font-semibold uppercase leading-none"
           style={{ fontSize: 5.5, letterSpacing: 0.5, color: OS_COLORS.grey }}
@@ -47,7 +59,7 @@ function LogoBlock() {
       </div>
       <div
         className="mt-1 rounded-full"
-        style={{ width: 64, height: 3, background: OS_COLORS.gold }}
+        style={{ width: 64, height: 3, background: os.couleurAccent }}
       />
     </div>
   );
@@ -71,11 +83,11 @@ export function DocHeader() {
   const os = useCompanyIdentity();
   return (
     <header className="mb-6 flex items-start justify-between">
-      <LogoBlock />
+      <LogoBlock os={os} />
       <div className="text-right">
         <div
           className="font-bold leading-tight"
-          style={{ fontSize: 18, color: OS_COLORS.navy }}
+          style={{ fontSize: 18, color: os.couleurPrincipale }}
         >
           {os.name}
         </div>
@@ -84,7 +96,7 @@ export function DocHeader() {
         </div>
         <div
           className="mt-0.5 italic"
-          style={{ fontSize: 9, color: OS_COLORS.gold }}
+          style={{ fontSize: 9, color: os.couleurAccent }}
         >
           {os.slogan}
         </div>
@@ -99,7 +111,7 @@ export function DocFooter() {
   return (
     <footer
       className="mt-6 rounded-lg px-4 py-2 text-center text-white/80"
-      style={{ background: OS_COLORS.navy, fontSize: 8.5, lineHeight: 1.5 }}
+      style={{ background: os.couleurPrincipale, fontSize: 8.5, lineHeight: 1.5 }}
     >
       <div>
         {os.name} au capital de {os.capital} | RCCM : {os.rccm} | Ninéa : {os.ninea}
@@ -107,6 +119,9 @@ export function DocFooter() {
       <div>
         {os.adresse} | Tél : {os.tel} | Email : {os.email} | {os.web}
       </div>
+      {os.mentionsLegales ? (
+        <div className="mt-0.5 opacity-90">{os.mentionsLegales}</div>
+      ) : null}
     </footer>
   );
 }
@@ -120,8 +135,8 @@ export function DocStamp({ label }: { label?: string }) {
         className="pb-0.5 font-bold"
         style={{
           fontSize: 12,
-          color: OS_COLORS.navy,
-          borderBottom: `2px solid ${OS_COLORS.gold}`,
+          color: os.couleurPrincipale,
+          borderBottom: `2px solid ${os.couleurAccent}`,
         }}
       >
         {label ?? os.comptabilite}
@@ -131,8 +146,8 @@ export function DocStamp({ label }: { label?: string }) {
         style={{
           width: 110,
           height: 110,
-          border: `2px solid ${OS_COLORS.navy}`,
-          color: OS_COLORS.navy,
+          border: `2px solid ${os.couleurPrincipale}`,
+          color: os.couleurPrincipale,
           opacity: 0.85,
           transform: "rotate(-8deg)",
         }}
@@ -144,7 +159,7 @@ export function DocStamp({ label }: { label?: string }) {
           One Security
         </span>
         <div className="my-0.5">
-          <OneMarkNavy />
+          <OneMarkNavy navy={os.couleurPrincipale} accent={os.couleurAccent} />
         </div>
         <span style={{ fontSize: 6.5, lineHeight: 1.3 }}>
           RC : {os.rccm}
@@ -157,20 +172,31 @@ export function DocStamp({ label }: { label?: string }) {
   );
 }
 
-/** Bloc signature maison apposé sur un document (nom + fonction + date + tracé). */
+/**
+ * Bloc signature apposé sur un document (nom + fonction + date + tracé).
+ * À défaut de signature propre au document, on retombe sur la signature du
+ * dirigeant enregistrée dans Paramètres (apposée automatiquement partout).
+ */
 export function DocSignatureBlock({
   signature,
 }: {
   signature?: { signataire: string; fonction: string; date: string; image: string };
 }) {
-  if (
-    !signature ||
-    (!signature.signataire && !signature.image && !signature.date)
-  ) {
-    return null;
-  }
-  const d = signature.date
-    ? new Date(signature.date).toLocaleDateString("fr-FR", {
+  const os = useCompanyIdentity();
+  const own = signature && (signature.signataire || signature.image || signature.date);
+  const sig = own
+    ? signature
+    : os.signature.image || os.signature.signataire
+      ? {
+          signataire: os.signature.signataire,
+          fonction: os.signature.fonction,
+          date: "",
+          image: os.signature.image,
+        }
+      : undefined;
+  if (!sig) return null;
+  const d = sig.date
+    ? new Date(sig.date).toLocaleDateString("fr-FR", {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -178,13 +204,13 @@ export function DocSignatureBlock({
     : "";
   return (
     <div className="mt-6 flex flex-col items-end">
-      <div style={{ fontSize: 10.5, color: OS_COLORS.navy }} className="font-semibold">
+      <div style={{ fontSize: 10.5, color: os.couleurPrincipale }} className="font-semibold">
         {d ? `Fait à Dakar, le ${d}` : ""}
       </div>
-      {signature.image ? (
+      {sig.image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={signature.image}
+          src={sig.image}
           alt="Signature"
           style={{ width: 170, height: 58, objectFit: "contain" }}
         />
@@ -195,17 +221,17 @@ export function DocSignatureBlock({
         className="pt-1 font-bold"
         style={{
           fontSize: 11.5,
-          color: OS_COLORS.navy,
-          borderTop: `2px solid ${OS_COLORS.gold}`,
+          color: os.couleurPrincipale,
+          borderTop: `2px solid ${os.couleurAccent}`,
           minWidth: 170,
           textAlign: "center",
         }}
       >
-        {signature.signataire || "—"}
+        {sig.signataire || "—"}
       </div>
-      {signature.fonction && (
-        <div className="text-center" style={{ fontSize: 9.5, color: OS_COLORS.navy, opacity: 0.75 }}>
-          {signature.fonction}
+      {sig.fonction && (
+        <div className="text-center" style={{ fontSize: 9.5, color: os.couleurPrincipale, opacity: 0.75 }}>
+          {sig.fonction}
         </div>
       )}
     </div>
@@ -213,13 +239,13 @@ export function DocSignatureBlock({
 }
 
 /** Variante marine de la marque « ONE » pour le cachet. */
-function OneMarkNavy() {
+function OneMarkNavy({ navy, accent }: { navy: string; accent: string }) {
   return (
     <span
       className="font-black leading-none tracking-tight"
-      style={{ fontSize: 16, color: OS_COLORS.navy }}
+      style={{ fontSize: 16, color: navy }}
     >
-      O<span style={{ color: OS_COLORS.gold }}>N</span>E
+      O<span style={{ color: accent }}>N</span>E
     </span>
   );
 }
