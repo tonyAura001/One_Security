@@ -707,6 +707,7 @@ const COMMON_MENU: MenuItem[] = [
   { key: "taches", label: "Tâches", icon: "check" },
   { key: "notes", label: "Notes", icon: "doc" },
   { key: "reunions", label: "Réunions", icon: "calendar" },
+  { key: "alertes", label: "Alertes", icon: "bell" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
 ];
@@ -766,6 +767,7 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   // Espace de travail / direction (contenu interne)
   "notes",
   "reunions",
+  "alertes",
   "decision",
   "diffusion",
   // Documents
