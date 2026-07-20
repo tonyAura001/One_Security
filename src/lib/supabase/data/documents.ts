@@ -5,9 +5,12 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
   DocRecord,
+  DocVisibility,
   DocumentData,
   DocumentType,
 } from "@/lib/documents/types";
+
+const DOC_COLS = "id,type,numero,titre,statut,donnees,clientId,visibility,createdAt,updatedAt";
 
 interface DbDoc {
   id: string;
@@ -17,6 +20,7 @@ interface DbDoc {
   statut: string;
   donnees: DocumentData;
   clientId: string | null;
+  visibility: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +34,7 @@ function map(d: DbDoc): DocRecord {
     statut: d.statut,
     donnees: d.donnees ?? {},
     clientId: d.clientId,
+    visibility: (d.visibility as DocVisibility) ?? "Tous",
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   };
@@ -37,9 +42,11 @@ function map(d: DbDoc): DocRecord {
 
 export async function fetchDocuments(): Promise<DocRecord[]> {
   const supabase = createClient();
+  // Le RLS filtre déjà selon la visibilité : les documents non autorisés
+  // n'apparaissent tout simplement pas dans la liste.
   const { data, error } = await supabase
     .from("Document")
-    .select("id,type,numero,titre,statut,donnees,clientId,createdAt,updatedAt")
+    .select(DOC_COLS)
     .order("updatedAt", { ascending: false });
   if (error) throw error;
   return (data as unknown as DbDoc[]).map(map);
@@ -49,11 +56,89 @@ export async function fetchDocument(id: string): Promise<DocRecord> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("Document")
-    .select("id,type,numero,titre,statut,donnees,clientId,createdAt,updatedAt")
+    .select(DOC_COLS)
     .eq("id", id)
     .single();
   if (error) throw error;
   return map(data as unknown as DbDoc);
+}
+
+// ── Permissions (FGAC) ───────────────────────────────────────────────────
+
+export interface DocumentPermissions {
+  visibility: DocVisibility;
+  roles: string[]; // RoleName (majuscule)
+  users: string[];
+}
+
+type RpcCaller = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+export async function fetchDocumentPermissions(id: string): Promise<DocumentPermissions> {
+  const supabase = createClient();
+  const [doc, roles, users] = await Promise.all([
+    supabase.from("Document").select("visibility").eq("id", id).maybeSingle(),
+    supabase.from("DocumentRole").select("role").eq("documentId", id),
+    supabase.from("DocumentUser").select("userId").eq("documentId", id),
+  ]);
+  return {
+    visibility: ((doc.data as { visibility?: string } | null)?.visibility as DocVisibility) ?? "Tous",
+    roles: ((roles.data as { role: string }[] | null) ?? []).map((r) => r.role),
+    users: ((users.data as { userId: string }[] | null) ?? []).map((u) => u.userId),
+  };
+}
+
+/** Règle la visibilité + rôles/utilisateurs autorisés (RPC DG-only, atomique + audit). */
+export async function setDocumentPermissions(
+  id: string,
+  visibility: DocVisibility,
+  roles: string[],
+  users: string[] = [],
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await (supabase.rpc as unknown as RpcCaller)("set_document_permissions", {
+    _doc: id,
+    _visibility: visibility,
+    _roles: roles,
+    _users: users,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Journalise une ouverture / un refus d'accès (RPC). Best-effort. */
+export async function logDocumentAccess(
+  id: string,
+  action: "open" | "denied",
+  allowed: boolean,
+): Promise<void> {
+  const supabase = createClient();
+  await (supabase.rpc as unknown as RpcCaller)("log_document_access", {
+    _doc: id,
+    _action: action,
+    _allowed: allowed,
+  }).catch(() => {});
+}
+
+export interface AccessLogRow {
+  id: string;
+  documentId: string | null;
+  action: string;
+  allowed: boolean;
+  detail: string | null;
+  createdAt: string;
+}
+/** Journal d'accès aux documents (RLS : DG uniquement). */
+export async function fetchDocumentAccessLog(limit = 100): Promise<AccessLogRow[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("DocumentAccessLog")
+    .select("id,documentId,action,allowed,detail,createdAt")
+    .order("createdAt", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as unknown as AccessLogRow[]) ?? [];
 }
 
 export interface NewDocumentInput {

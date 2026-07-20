@@ -93,6 +93,8 @@ export type DocumentData =
   | FicheData
   | Record<string, unknown>;
 
+export type DocVisibility = "DG" | "Direction" | "Managers" | "Tous";
+
 export interface DocRecord {
   id: string;
   type: DocumentType;
@@ -101,6 +103,7 @@ export interface DocRecord {
   statut: string; // brouillon | finalise | signe
   donnees: DocumentData;
   clientId: string | null;
+  visibility: DocVisibility;
   createdAt: string;
   updatedAt: string;
 }

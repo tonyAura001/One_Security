@@ -46,7 +46,9 @@ import { FicheTemplate } from "@/components/documents/fiche-template";
 import { RichTextEditor } from "@/components/documents/rich-text-editor";
 import { SignaturePad } from "@/components/documents/signature-pad";
 import { DocumentVersions } from "./document-versions";
-import type { DocVersion } from "@/lib/supabase/data/documents";
+import { DocumentPermissions } from "./document-permissions";
+import { logDocumentAccess, type DocVersion } from "@/lib/supabase/data/documents";
+import { useSession } from "@/lib/store/session";
 import type { DocSignature, WithSignature } from "@/lib/documents/types";
 
 const field =
@@ -170,6 +172,7 @@ export function DocumentsScreen() {
   }
 
   function edit(d: DocRecord) {
+    void logDocumentAccess(d.id, "open", true); // audit d'ouverture (best-effort)
     setDraft({
       id: d.id,
       type: d.type,
@@ -304,6 +307,12 @@ export function DocumentsScreen() {
               </div>
             </div>
             <StatusPill
+              variant={d.visibility === "Tous" ? "neutral" : d.visibility === "DG" ? "danger" : "warning"}
+              uppercase
+            >
+              {d.visibility === "DG" ? "DG" : d.visibility === "Tous" ? "Tous" : d.visibility}
+            </StatusPill>
+            <StatusPill
               variant={
                 d.statut === "signe"
                   ? "success"
@@ -339,6 +348,8 @@ function DocumentEditor({
   onBack: () => void;
   onSave: () => void;
 }) {
+  const { role } = useSession();
+  const isDG = role === "dg";
   const date = (draft.donnees as { date?: string }).date ?? "";
   const dateLabel = useMemo(
     () =>
@@ -440,6 +451,8 @@ function DocumentEditor({
             <SignaturePad value={signature} onChange={setSignature} />
           </div>
         </Card>
+
+          {draft.id && isDG && <DocumentPermissions documentId={draft.id} />}
 
           {draft.id && (
             <DocumentVersions documentId={draft.id} onRestore={restoreVersion} />
