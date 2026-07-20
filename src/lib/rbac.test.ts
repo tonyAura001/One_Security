@@ -42,6 +42,7 @@ describe("RBAC — contrôle d'accès", () => {
   it("le DG accède aux écrans transverses", () => {
     expect(canAccess("dg", "documents")).toBe(true);
     expect(canAccess("dg", "taches")).toBe(true);
+    expect(canAccess("dg", "projets")).toBe(true);
     expect(canAccess("dg", "messagerie")).toBe(true);
     expect(canAccess("dg", "dashboard")).toBe(true);
   });
@@ -51,7 +52,6 @@ describe("RBAC — contrôle d'accès", () => {
       "rentabilite",
       "satisfaction",
       "veille",
-      "projets",
       "bibliotheque",
       "notes",
       "pos",

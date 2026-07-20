@@ -745,6 +745,7 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "interventions",
   // Communs
   "taches",
+  "projets",
   "messagerie",
   // Documents
   "documents",

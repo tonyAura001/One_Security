@@ -1,27 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  AlertTriangle,
-  Banknote,
-  Layers,
-  Plus,
-  TrendingUp,
-} from "lucide-react";
+import { AlertTriangle, Banknote, Layers, TrendingUp } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DataTable } from "@/components/ui/data-table";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
-import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/store/session";
-import { getProjects, STATUT_META, type Project } from "@/lib/api/projects";
+import { NewProjetDialog } from "./new-projet-dialog";
+import { fetchProjets, type Projet } from "@/lib/supabase/data/projets";
+import { STATUT_META } from "./statut-meta";
 import { formatFCFACompact, formatDateFR } from "@/lib/format";
-import { toast } from "@/lib/toast";
 
-const columns: ColumnDef<Project>[] = [
+const columns: ColumnDef<Projet>[] = [
   {
     accessorKey: "nom",
     header: "Projet",
@@ -30,28 +23,31 @@ const columns: ColumnDef<Project>[] = [
     ),
   },
   {
-    accessorKey: "siteClient",
+    id: "siteClient",
+    accessorFn: (r) => r.siteClient ?? "",
     header: "Site client",
     cell: ({ row }) => (
       <span className="text-muted font-semibold">
-        {row.original.siteClient}
+        {row.original.siteClient ?? "—"}
       </span>
     ),
   },
   {
     id: "responsable",
-    accessorFn: (r) => r.responsable.nom,
+    accessorFn: (r) => r.responsable?.nom ?? "",
     header: "Responsable",
-    cell: ({ row }) => (
-      <span className="inline-flex items-center gap-2">
-        <span className="bg-active text-accent flex size-6 items-center justify-center rounded-full text-[10px] font-bold">
-          {row.original.responsable.initials}
+    cell: ({ row }) => {
+      const r = row.original.responsable;
+      if (!r) return <span className="text-muted font-semibold">— À définir —</span>;
+      return (
+        <span className="inline-flex items-center gap-2">
+          <span className="bg-active text-accent flex size-6 items-center justify-center rounded-full text-[10px] font-bold">
+            {r.initials}
+          </span>
+          <span className="text-foreground font-semibold">{r.nom}</span>
         </span>
-        <span className="text-foreground font-semibold">
-          {row.original.responsable.nom}
-        </span>
-      </span>
-    ),
+      );
+    },
   },
   {
     accessorKey: "avancementPct",
@@ -90,9 +86,11 @@ const columns: ColumnDef<Project>[] = [
 ];
 
 export function ProjetsListe() {
-  const { role } = useSession();
   const router = useRouter();
-  const projects = useMemo(() => getProjects(role), [role]);
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projets"],
+    queryFn: fetchProjets,
+  });
 
   const actifs = projects.filter((p) => p.statut !== "termine").length;
   const enCours = projects.filter((p) => p.statut === "en_cours").length;
@@ -109,13 +107,7 @@ export function ProjetsListe() {
             {actifs} déploiement{actifs !== 1 ? "s" : ""} en cours
           </p>
         </div>
-        <Button
-          onClick={() =>
-            toast.info("Nouveau projet", "Fonction de démonstration")
-          }
-        >
-          <Plus className="size-4" /> Nouveau projet
-        </Button>
+        <NewProjetDialog />
       </div>
 
       {/* KPI */}
