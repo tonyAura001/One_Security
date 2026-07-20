@@ -250,7 +250,18 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "calendrier", label: "Calendrier éditorial", icon: "calendar" },
           { key: "composer", label: "Composer", icon: "edit" },
           { key: "diffusion", label: "Diffusion", icon: "megaphone" },
+          { key: "veille", label: "Veille réputation", icon: "alert" },
           { key: "notifications", label: "Notifications", icon: "bell" },
+        ],
+      },
+      {
+        label: "Boutique & Caisse",
+        icon: "box",
+        children: [
+          { key: "catalogue", label: "Catalogue équipements", icon: "box" },
+          { key: "stock", label: "Gestion du stock", icon: "box" },
+          { key: "recus", label: "Reçus", icon: "receipt" },
+          { key: "cloture", label: "Clôture journalière", icon: "lock" },
         ],
       },
       GRP_ADMIN,
@@ -764,6 +775,9 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "catalogue",
   "stock",
   "recus",
+  "cloture",
+  // Communication
+  "veille",
   // Communication
   "calendrier",
   "composer",
