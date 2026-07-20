@@ -16,6 +16,7 @@ export interface Client {
   contact: string;
   phone: string;
   sites: number;
+  contracts?: number; // nombre de contrats rattachés (données réelles)
   monthly: number; // FCFA / month
   status: ClientStatus;
   health: number; // 0–100

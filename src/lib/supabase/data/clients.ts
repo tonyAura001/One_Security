@@ -71,6 +71,7 @@ function mapDbClient(r: DbClient): Client {
     contact: primary ? `${primary.prenom} ${primary.nom}` : "—",
     phone: primary?.telephoneMobile ?? primary?.telephoneFixe ?? "—",
     sites: r.Site[0]?.count ?? 0,
+    contracts: r.Contrat.length,
     monthly: Math.round(monthly),
     status: r.statut,
     health: r.scoreSante,
