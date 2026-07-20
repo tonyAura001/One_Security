@@ -15,6 +15,17 @@ export const DOC_TYPE_LABEL: Record<DocumentType, string> = {
   communique: "Communiqué officiel",
 };
 
+/** Signature maison apposée sur un document (nom + fonction + date + tracé PNG). */
+export interface DocSignature {
+  signataire: string;
+  fonction: string;
+  date: string; // yyyy-mm-dd
+  image: string; // data URL PNG du tracé (optionnel)
+}
+
+/** Tout `donnees` de document peut porter une signature (champ transverse). */
+export type WithSignature = { signature?: DocSignature };
+
 /** Ligne d'un devis : montant = nbreAgent × prixUnitaire (calculé). */
 export interface DevisLigne {
   detail: string;

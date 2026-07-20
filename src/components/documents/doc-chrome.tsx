@@ -152,6 +152,61 @@ export function DocStamp({ label }: { label?: string }) {
   );
 }
 
+/** Bloc signature maison apposé sur un document (nom + fonction + date + tracé). */
+export function DocSignatureBlock({
+  signature,
+}: {
+  signature?: { signataire: string; fonction: string; date: string; image: string };
+}) {
+  if (
+    !signature ||
+    (!signature.signataire && !signature.image && !signature.date)
+  ) {
+    return null;
+  }
+  const d = signature.date
+    ? new Date(signature.date).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+  return (
+    <div className="mt-6 flex flex-col items-end">
+      <div style={{ fontSize: 10.5, color: OS_COLORS.navy }} className="font-semibold">
+        {d ? `Fait à Dakar, le ${d}` : ""}
+      </div>
+      {signature.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={signature.image}
+          alt="Signature"
+          style={{ width: 170, height: 58, objectFit: "contain" }}
+        />
+      ) : (
+        <div style={{ height: 40 }} />
+      )}
+      <div
+        className="pt-1 font-bold"
+        style={{
+          fontSize: 11.5,
+          color: OS_COLORS.navy,
+          borderTop: `2px solid ${OS_COLORS.gold}`,
+          minWidth: 170,
+          textAlign: "center",
+        }}
+      >
+        {signature.signataire || "—"}
+      </div>
+      {signature.fonction && (
+        <div className="text-center" style={{ fontSize: 9.5, color: OS_COLORS.navy, opacity: 0.75 }}>
+          {signature.fonction}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Variante marine de la marque « ONE » pour le cachet. */
 function OneMarkNavy() {
   return (

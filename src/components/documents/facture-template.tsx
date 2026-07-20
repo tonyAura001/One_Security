@@ -1,4 +1,5 @@
-import { A4Page, DocFooter, DocHeader, DocStamp } from "./doc-chrome";
+import { A4Page, DocFooter, DocHeader, DocStamp, DocSignatureBlock } from "./doc-chrome";
+import type { WithSignature } from "@/lib/documents/types";
 
 import { ONE_SECURITY, OS_COLORS } from "@/lib/one-security";
 import { type FactureData, factureTotaux } from "@/lib/documents/types";
@@ -207,6 +208,8 @@ export function FactureTemplate({
           }}
         />
       </div>
+
+      <DocSignatureBlock signature={(data as WithSignature).signature} />
 
       <DocStamp label={ONE_SECURITY.comptabilite} />
 

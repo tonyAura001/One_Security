@@ -44,8 +44,10 @@ import { RapportTemplate } from "@/components/documents/rapport-template";
 import { CommuniqueTemplate } from "@/components/documents/communique-template";
 import { FicheTemplate } from "@/components/documents/fiche-template";
 import { RichTextEditor } from "@/components/documents/rich-text-editor";
+import { SignaturePad } from "@/components/documents/signature-pad";
 import { DocumentVersions } from "./document-versions";
 import type { DocVersion } from "@/lib/supabase/data/documents";
+import type { DocSignature, WithSignature } from "@/lib/documents/types";
 
 const field =
   "w-full rounded-[9px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
@@ -350,6 +352,11 @@ function DocumentEditor({
     setDraft({ ...draft, donnees });
   }
 
+  const signature = (draft.donnees as WithSignature).signature;
+  function setSignature(sig: DocSignature | undefined) {
+    setDraft({ ...draft, donnees: { ...(draft.donnees as object), signature } as DocumentData });
+  }
+
   function restoreVersion(v: DocVersion) {
     setDraft({
       ...draft,
@@ -427,6 +434,10 @@ function DocumentEditor({
             {draft.type === "fiche_engagement" && (
               <FicheFields data={draft.donnees as FicheData} onChange={setDonnees} />
             )}
+          </div>
+
+          <div className="border-border mt-4 border-t pt-4">
+            <SignaturePad value={signature} onChange={setSignature} />
           </div>
         </Card>
 
