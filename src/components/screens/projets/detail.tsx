@@ -9,6 +9,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CommentThread } from "@/components/ui/comment-thread";
+import { AttachmentsPanel } from "@/components/ui/attachments-panel";
 import { fetchProjet } from "@/lib/supabase/data/projets";
 import { STATUT_META } from "./statut-meta";
 import { formatDateFR, formatFCFA } from "@/lib/format";
@@ -123,6 +124,10 @@ export function ProjectDetail({ id }: { id: string }) {
           </div>
         </Card>
       </div>
+
+      <Card className="mt-4 p-[18px_20px]">
+        <AttachmentsPanel entite="PROJET" idEntite={project.id} title="Documents du déploiement" />
+      </Card>
 
       <Card className="mt-4 p-[18px_20px]">
         <CommentThread entite="PROJET" idEntite={project.id} />
