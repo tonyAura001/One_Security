@@ -29,7 +29,7 @@ export function RoleHome() {
           {greeting}
         </div>
         <div className="text-muted mt-[3px] text-[12.5px] font-semibold">
-          {config.fonction} · PilotePME — Dakar Sécurité
+          {config.fonction} · PilotePME — One Security
         </div>
       </div>
 

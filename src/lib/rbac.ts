@@ -139,7 +139,7 @@ export interface RoleConfig {
 }
 
 export const ORG = {
-  name: "Dakar Sécurité",
+  name: "One Security",
   tagline: "PILOTEPME · SÉCURITÉ PRIVÉE",
 } as const;
 

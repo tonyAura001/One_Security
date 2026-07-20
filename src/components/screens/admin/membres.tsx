@@ -338,7 +338,7 @@ function InviteDialog({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="prenom.nom@dakarsecurite.sn"
+            placeholder="prenom.nom@onesecurity.sn"
           />
           <div className="grid grid-cols-2 gap-3">
             <div>

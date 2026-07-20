@@ -102,7 +102,7 @@ export function CaissierRecus() {
                 Aperçu du reçu
               </div>
               <div className="text-muted text-[11.5px] font-semibold">
-                Dakar Sécurité — boutique
+                One Security — boutique
               </div>
             </div>
           </div>
