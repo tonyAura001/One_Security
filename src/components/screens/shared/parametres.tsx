@@ -50,6 +50,13 @@ const label =
 
 export function SharedParametres() {
   const [section, setSection] = useState<Section>("entreprise");
+  // Deep-link : /parametres?section=securite (depuis le menu profil).
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("section");
+    if (s === "entreprise" || s === "membres" || s === "securite" || s === "donnees") {
+      setSection(s);
+    }
+  }, []);
 
   return (
     <ScreenContainer>

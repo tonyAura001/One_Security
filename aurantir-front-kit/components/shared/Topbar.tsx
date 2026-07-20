@@ -6,12 +6,14 @@
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/aurantir-front-kit/lib/utils'
 import { useAppStore } from '@/aurantir-front-kit/lib/store/app.store'
-import { Bell, Search, ChevronDown, Moon, Sun, Menu, Check } from 'lucide-react'
+import { Bell, Search, ChevronDown, Moon, Sun, Menu, Check, KeyRound, LogOut, Settings } from 'lucide-react'
 import { useSession } from '@/lib/store/session'
 import { ROLE_ORDER, ROLES } from '@/lib/rbac'
-import { NOTIFICATIONS } from '@/lib/api/data'
+import { fetchNotifications } from '@/lib/supabase/data/notifications'
+import { logout } from '@/lib/auth/actions'
 import { formatRelative } from '@/lib/format'
 
 const TONE_DOT: Record<string, string> = {
@@ -27,10 +29,20 @@ export function Topbar() {
   const { role, config, org, user, setRole } = useSession()
   const [showRoles, setShowRoles] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const [search, setSearch] = useState('')
+  const [readAt, setReadAt] = useState<number>(0)
 
   const isDark = theme === 'sombre'
-  const nonLues = NOTIFICATIONS.filter((n) => !n.read).length
+  // Fil de notifications RÉEL (événements datés : réclamations, annonces,
+  // décisions) — se rafraîchit à l'ouverture et périodiquement.
+  const { data: notifs = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: fetchNotifications,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  })
+  const nonLues = notifs.filter((n) => new Date(n.at).getTime() > readAt).length
 
   function pickRole(id: (typeof ROLE_ORDER)[number]) {
     setRole(id)
@@ -146,7 +158,11 @@ export function Topbar() {
         {/* Notifications */}
         <div className="relative">
           <button
-            onClick={() => setShowNotifs((v) => !v)}
+            onClick={() => {
+              const opening = !showNotifs
+              setShowNotifs(opening)
+              if (opening) setReadAt(Date.now())
+            }}
             className="relative p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-all"
             aria-label={`Notifications (${nonLues} non lues)`}
           >
@@ -162,49 +178,94 @@ export function Topbar() {
               <div className="fixed inset-0 z-10" onClick={() => setShowNotifs(false)} />
               <div className="absolute top-full right-0 mt-1.5 w-80 bg-surface border border-surface-border rounded-xl shadow-dropdown z-20 overflow-hidden animate-scale-in">
                 <div className="px-3 py-2.5 border-b border-surface-border">
-                  <p className="text-sm font-semibold text-text-primary">
-                    Notifications
-                  </p>
+                  <p className="text-sm font-semibold text-text-primary">Notifications</p>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {NOTIFICATIONS.map((n) => (
-                    <div
-                      key={n.id}
-                      className="flex gap-2.5 px-3 py-2.5 border-b border-surface-border/50 hover:bg-surface-hover transition-colors last:border-0"
-                    >
-                      <span
-                        className={cn(
-                          'mt-1 w-2 h-2 rounded-full flex-shrink-0',
-                          TONE_DOT[n.tone] ?? 'bg-text-muted',
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-text-primary">
-                          {n.title}
-                        </p>
-                        <p className="text-2xs text-text-secondary">{n.detail}</p>
-                        <p className="text-2xs text-text-muted mt-0.5">
-                          {formatRelative(n.at)}
-                        </p>
+                  {notifs.length === 0 ? (
+                    <p className="px-3 py-6 text-center text-xs text-text-muted">
+                      Aucune notification.
+                    </p>
+                  ) : (
+                    notifs.map((n) => (
+                      <div
+                        key={n.id}
+                        className="flex gap-2.5 px-3 py-2.5 border-b border-surface-border/50 hover:bg-surface-hover transition-colors last:border-0"
+                      >
+                        <span
+                          className={cn(
+                            'mt-1 w-2 h-2 rounded-full flex-shrink-0',
+                            TONE_DOT[n.tone] ?? 'bg-text-muted',
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+                          <p className="text-2xs text-text-secondary">{n.detail}</p>
+                          <p className="text-2xs text-text-muted mt-0.5">
+                            {formatRelative(n.at)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </>
           )}
         </div>
 
-        {/* Avatar */}
-        <div
-          className="ml-1 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-          style={{
-            background: `linear-gradient(145deg, ${user.gradient[0]}, ${user.gradient[1]})`,
-          }}
-          title={`${user.name} · ${user.fonction}`}
-          aria-label={`${user.name}, ${user.fonction}`}
-        >
-          {user.initials}
+        {/* Avatar + menu profil */}
+        <div className="relative ml-1">
+          <button
+            onClick={() => setShowProfile((v) => !v)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold focus-visible:ring-2 focus-visible:ring-blue outline-none"
+            style={{
+              background: `linear-gradient(145deg, ${user.gradient[0]}, ${user.gradient[1]})`,
+            }}
+            title={`${user.name} · ${user.fonction}`}
+            aria-label={`Profil de ${user.name}`}
+            aria-haspopup="menu"
+            aria-expanded={showProfile}
+          >
+            {user.initials}
+          </button>
+          {showProfile && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowProfile(false)} />
+              <div className="absolute top-full right-0 mt-1.5 w-60 bg-surface border border-surface-border rounded-xl shadow-dropdown z-20 overflow-hidden animate-scale-in">
+                <div className="px-3 py-3 border-b border-surface-border flex items-center gap-2.5">
+                  <span
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-none"
+                    style={{ background: `linear-gradient(145deg, ${user.gradient[0]}, ${user.gradient[1]})` }}
+                  >
+                    {user.initials}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-text-primary truncate">{user.name}</p>
+                    <p className="text-2xs text-text-muted truncate">{user.fonction}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowProfile(false); router.push('/parametres') }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-semibold text-text-secondary hover:bg-surface-hover"
+                >
+                  <Settings size={15} /> Paramètres du compte
+                </button>
+                <button
+                  onClick={() => { setShowProfile(false); router.push('/parametres?section=securite') }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-semibold text-text-secondary hover:bg-surface-hover"
+                >
+                  <KeyRound size={15} /> Changer mon mot de passe
+                </button>
+                <div className="border-t border-surface-border" />
+                <button
+                  onClick={() => logout()}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-bold text-red hover:bg-red/10"
+                >
+                  <LogOut size={15} /> Se déconnecter
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
