@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { NewPublicationDialog } from "./new-publication-dialog";
+import { PlateformesPanel } from "./plateformes-panel";
+import { EngagementDialog } from "./engagement-dialog";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -46,6 +48,8 @@ export function CmCalendrier() {
   );
   return (
     <ScreenContainer>
+      <PlateformesPanel />
+
       <div className="mb-4 flex items-center justify-between">
         <div className="text-muted text-[11px] font-bold tracking-[0.7px]">
           CALENDRIER ÉDITORIAL
@@ -88,11 +92,14 @@ export function CmCalendrier() {
                   <StatusPill variant={status.variant} dot uppercase>
                     {status.label}
                   </StatusPill>
-                  {typeof p.engagement === "number" && (
+                  {typeof p.engagement === "number" && p.engagement > 0 && (
                     <span className="text-muted text-[10px] font-bold">
                       {p.engagement} interactions
                     </span>
                   )}
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <EngagementDialog publicationId={p.id} title={p.title} />
                 </div>
               </div>
             </Card>
