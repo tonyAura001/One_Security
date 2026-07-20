@@ -9,6 +9,7 @@ import { type ChatLine, type Conversation } from "@/lib/api/messagerie";
 import { cn } from "@/lib/utils";
 import { fetchConversations, sendMessage } from "@/lib/supabase/data/messagerie";
 import { NewCanalDialog } from "./new-canal-dialog";
+import { NewDirectDialog } from "./new-direct-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/lib/toast";
 
@@ -61,7 +62,10 @@ export function MessagerieScreen() {
               Échangez avec vos équipes en temps réel
             </p>
           </div>
-          <NewCanalDialog />
+          <div className="flex items-center gap-1.5">
+            <NewDirectDialog />
+            <NewCanalDialog />
+          </div>
         </div>
         <EmptyState
           title="Aucun canal"
