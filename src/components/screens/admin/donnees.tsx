@@ -1,245 +1,104 @@
 "use client";
 
-import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import {
-  Database,
-  DatabaseBackup,
-  Download,
-  FileSpreadsheet,
-  HardDriveUpload,
-  ShieldCheck,
-  Upload,
-} from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Database, Download } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { DataTable } from "@/components/ui/data-table";
 import { Card } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
-import {
-  getBackups,
-  getExports,
-  getRetentionPolicies,
-  getDataStats,
-  BACKUP_STATUS_META,
-  EXPORT_STATUS_META,
-  type ExportRecord,
-} from "@/lib/api/data-management";
-import { formatDateFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
+import { downloadCsv } from "@/lib/csv";
+import { fetchMembers } from "@/lib/supabase/data/members";
+import { fetchReceipts } from "@/lib/supabase/data/caisse";
+import { fetchInvoices } from "@/lib/supabase/data/invoices";
 
-const exportColumns: ColumnDef<ExportRecord>[] = [
+type Row = (string | number)[];
+
+const DATASETS: {
+  key: string;
+  label: string;
+  detail: string;
+  file: string;
+  load: () => Promise<Row[]>;
+}[] = [
   {
-    accessorKey: "type",
-    header: "Type",
-    cell: ({ row }) => (
-      <span className="text-foreground font-bold">{row.original.type}</span>
-    ),
+    key: "membres",
+    label: "Utilisateurs",
+    detail: "Comptes membres, rôles et statuts",
+    file: "membres",
+    load: async () => {
+      const m = await fetchMembers();
+      return [["Nom", "E-mail", "Téléphone", "Rôle", "Statut"], ...m.map((x) => [x.name, x.email, x.phone, x.roleLabel, x.statut])];
+    },
   },
   {
-    accessorKey: "requester",
-    header: "Demandeur",
-    cell: ({ row }) => (
-      <span className="text-muted font-semibold">{row.original.requester}</span>
-    ),
+    key: "factures",
+    label: "Factures",
+    detail: "Facturation clients (montants, statuts)",
+    file: "factures",
+    load: async () => {
+      const f = await fetchInvoices();
+      return [["Référence", "Client", "Montant", "Statut", "Échéance"], ...f.map((x) => [x.ref, x.client, x.amount, x.status, x.due])];
+    },
   },
   {
-    accessorKey: "at",
-    header: "Date",
-    cell: ({ row }) => (
-      <span className="text-muted tnum font-semibold whitespace-nowrap">
-        {formatDateFR(row.original.at, "dd/MM/yyyy HH:mm")}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "format",
-    header: "Format",
-    cell: ({ row }) => (
-      <span className="text-muted font-semibold">{row.original.format}</span>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Statut",
-    cell: ({ row }) => {
-      const meta = EXPORT_STATUS_META[row.original.status];
-      return <StatusPill variant={meta.variant}>{meta.label}</StatusPill>;
+    key: "recus",
+    label: "Ventes boutique",
+    detail: "Reçus de caisse (montants, moyens)",
+    file: "ventes-boutique",
+    load: async () => {
+      const r = await fetchReceipts();
+      return [["Référence", "Heure", "Articles", "Total", "Moyen"], ...r.map((x) => [x.ref, x.time, x.items, x.total, x.method])];
     },
   },
 ];
 
-const EXPORT_ACTIONS = [
-  { label: "Agents", format: "CSV" },
-  { label: "Contrats", format: "PDF" },
-  { label: "Paie", format: "Excel" },
-  { label: "Factures", format: "Excel" },
-];
-
 export function DonneesScreen() {
-  const backups = useMemo(() => getBackups(), []);
-  const exports = useMemo(() => getExports(), []);
-  const retention = useMemo(() => getRetentionPolicies(), []);
-  const stats = useMemo(() => getDataStats(), []);
+  const exporter = useMutation({
+    mutationFn: async (d: (typeof DATASETS)[number]) => {
+      const rows = await d.load();
+      downloadCsv(d.file, rows);
+      return d.label;
+    },
+    onSuccess: (label) => toast.success(`Export « ${label} » téléchargé`),
+    onError: () => toast.error("Export refusé (accès requis pour ce jeu de données)."),
+  });
 
   return (
     <ScreenContainer>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Données</h1>
-          <p className="page-subtitle">
-            Sauvegardes, exports & conformité APDP
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={() => toast.success("Sauvegarde manuelle lancée")}
-        >
-          <DatabaseBackup className="size-4" /> Sauvegarder
-        </Button>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-3">
-        <KpiCard
-          icon={Database}
-          tone="accent"
-          value={stats.volume}
-          label="Volume de données"
-        />
-        <KpiCard
-          icon={DatabaseBackup}
-          tone="success"
-          value={formatDateFR(stats.lastBackup, "d MMM · HH:mm")}
-          label="Dernière sauvegarde"
-        />
-        <KpiCard
-          icon={Download}
-          tone="violet"
-          value={String(stats.exportsThisMonth)}
-          label="Exports ce mois"
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-[15px] lg:grid-cols-2">
-        {/* Sauvegardes */}
-        <Card className="flex flex-col gap-3 p-4">
-          <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-            Sauvegardes automatiques
-          </div>
-          <p className="text-muted text-[12px] font-semibold">
-            Sauvegarde quotidienne chiffrée à 03h00 (rétention 30 jours).
-          </p>
-          <div className="flex flex-col gap-2">
-            {backups.map((b) => {
-              const meta = BACKUP_STATUS_META[b.status];
-              return (
-                <div
-                  key={b.id}
-                  className="border-border bg-surface2 flex items-center gap-3 rounded-xl border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-foreground text-[12.5px] font-bold">
-                      {formatDateFR(b.at, "dd/MM/yyyy · HH:mm")}
-                    </div>
-                    <div className="text-muted text-[11px] font-semibold">
-                      {b.type} · {b.size}
-                    </div>
-                  </div>
-                  <StatusPill variant={meta.variant}>{meta.label}</StatusPill>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Exports & Import */}
-        <div className="flex flex-col gap-[15px]">
-          <Card className="flex flex-col gap-3 p-4">
-            <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-              Exporter des données
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {EXPORT_ACTIONS.map((a) => (
-                <Button
-                  key={a.label}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start"
-                  onClick={() =>
-                    toast.success(`Export ${a.label} (${a.format}) généré`)
-                  }
-                >
-                  <FileSpreadsheet className="size-4" /> {a.label}
-                  <span className="text-muted ml-auto text-[10.5px] font-bold">
-                    {a.format}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="flex flex-col gap-3 p-4">
-            <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-              Import de données
-            </div>
-            <p className="text-muted text-[12px] font-semibold">
-              Importez un fichier CSV/Excel (agents, clients, présences).
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => toast.info("Import de données", "Fonction de démonstration")}
-            >
-              <Upload className="size-4" /> Choisir un fichier
-            </Button>
-          </Card>
+          <h1 className="page-title">Données &amp; conformité</h1>
+          <p className="page-subtitle">Export et gouvernance des données</p>
         </div>
       </div>
 
-      {/* Rétention & conformité */}
-      <Card className="mt-4 flex flex-col gap-3 p-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="text-success size-5" />
-          <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-            Rétention & conformité APDP
-          </div>
+      <Card className="mt-4 p-[18px_20px]">
+        <div className="text-foreground mb-3.5 flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.3px]">
+          <Database className="size-4" /> Exports de données (Excel/CSV)
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {retention.map((r) => (
-            <div
-              key={r.dataType}
-              className="border-border bg-surface2 rounded-xl border p-3"
-            >
-              <div className="text-foreground text-[12.5px] font-bold">
-                {r.dataType}
+        <div className="flex flex-col gap-2.5">
+          {DATASETS.map((d) => (
+            <div key={d.key} className="border-border bg-surface2 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-foreground text-[13px] font-bold">{d.label}</div>
+                <div className="text-muted mt-0.5 text-[11.5px] font-semibold">{d.detail}</div>
               </div>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-accent text-[12px] font-extrabold">
-                  {r.duration}
-                </span>
-                <span className="text-muted text-[10.5px] font-semibold">
-                  {r.basis}
-                </span>
-              </div>
+              <Button size="sm" disabled={exporter.isPending} onClick={() => exporter.mutate(d)}>
+                <Download className="size-4" /> Exporter
+              </Button>
             </div>
           ))}
         </div>
       </Card>
 
-      {/* Historique des exports */}
-      <div className="mt-4">
-        <div className="text-foreground mb-2.5 flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.3px]">
-          <HardDriveUpload className="size-4" /> Historique des exports
+      <Card className="mt-4 p-[18px_20px]">
+        <div className="text-foreground mb-2 text-[14px] font-extrabold">Sauvegardes & conformité</div>
+        <div className="text-muted text-[12px] font-semibold leading-[1.6]">
+          Sauvegardes automatiques quotidiennes gérées par Supabase (Point-in-Time Recovery
+          selon l&apos;abonnement). Les données sont protégées par isolation par rôle (RLS) sur
+          l&apos;ensemble des tables. Registre de traitement APDP (Sénégal) à tenir par la Direction.
         </div>
-        <DataTable
-          columns={exportColumns}
-          data={exports}
-          emptyTitle="Aucun export"
-          emptyDescription="Aucun export réalisé ce mois."
-        />
-      </div>
+      </Card>
     </ScreenContainer>
   );
 }

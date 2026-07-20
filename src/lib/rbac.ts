@@ -803,6 +803,12 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   // Administration / système
   "membres",
   "parametres",
+  "securite",
+  "donnees",
+  // Pilotage / direction
+  "analytics",
+  "rapports",
+  "acces",
 ]);
 
 /**
