@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, MapPin, Phone, User } from "lucide-react";
+import { ArrowRight, Building2, MapPin, Phone, User } from "lucide-react";
+import { Client360 } from "@/components/screens/crm/client-360";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { NewClientDialog } from "@/components/screens/crm/new-client-dialog";
 import { NewSiteDialog } from "@/components/screens/crm/new-site-dialog";
@@ -53,9 +54,16 @@ export function CrmClients() {
   const clients: Client[] = data ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const selected =
     clients.find((c) => c.id === selectedId) ?? clients[0];
   const activeCount = clients.filter((c) => c.status === "actif").length;
+
+  // Fiche 360° plein écran (bouton « Détails »).
+  const detailClient = detailId ? clients.find((c) => c.id === detailId) : null;
+  if (detailClient) {
+    return <Client360 client={detailClient} onClose={() => setDetailId(null)} />;
+  }
 
   if (!selected) {
     return (
@@ -154,13 +162,19 @@ export function CrmClients() {
         </Card>
 
         {/* 360° detail panel */}
-        <ClientDetail client={selected} />
+        <ClientDetail client={selected} onDetails={() => setDetailId(selected.id)} />
       </div>
     </ScreenContainer>
   );
 }
 
-function ClientDetail({ client }: { client: Client }) {
+function ClientDetail({
+  client,
+  onDetails,
+}: {
+  client: Client;
+  onDetails: () => void;
+}) {
   const meta = STATUS_META[client.status];
   const tone = healthTone(client.health);
 
@@ -182,6 +196,11 @@ function ClientDetail({ client }: { client: Client }) {
           {meta.label}
         </StatusPill>
       </div>
+
+      <Button size="sm" className="w-full" onClick={onDetails}>
+        Voir la fiche 360° — contrats, factures, devis…
+        <ArrowRight className="size-4" />
+      </Button>
 
       <div className="border-border bg-surface2 rounded-xl border p-3.5">
         <div className="mb-1.5 flex justify-between">
