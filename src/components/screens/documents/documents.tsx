@@ -22,6 +22,7 @@ import {
   createDocument,
   updateDocument,
   deleteDocument,
+  snapshotDocument,
 } from "@/lib/supabase/data/documents";
 import {
   DOC_TYPE_LABEL,
@@ -43,6 +44,8 @@ import { RapportTemplate } from "@/components/documents/rapport-template";
 import { CommuniqueTemplate } from "@/components/documents/communique-template";
 import { FicheTemplate } from "@/components/documents/fiche-template";
 import { RichTextEditor } from "@/components/documents/rich-text-editor";
+import { DocumentVersions } from "./document-versions";
+import type { DocVersion } from "@/lib/supabase/data/documents";
 
 const field =
   "w-full rounded-[9px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
@@ -178,6 +181,7 @@ export function DocumentsScreen() {
   async function save() {
     if (!draft) return;
     try {
+      let docId = draft.id;
       if (draft.id) {
         await updateDocument(draft.id, {
           titre: draft.titre,
@@ -187,14 +191,27 @@ export function DocumentsScreen() {
         });
         toast.success("Document enregistré");
       } else {
-        const id = await createDocument({
+        docId = await createDocument({
           type: draft.type,
           titre: draft.titre,
           numero: draft.numero,
           donnees: draft.donnees,
         });
-        setDraft({ ...draft, id });
+        setDraft({ ...draft, id: docId });
         toast.success("Document créé");
+      }
+      // Instantané de version (historique). Best-effort : n'échoue pas le save.
+      if (docId) {
+        try {
+          await snapshotDocument(docId, {
+            titre: draft.titre,
+            statut: draft.statut,
+            donnees: draft.donnees,
+          });
+          qc.invalidateQueries({ queryKey: ["doc-versions", docId] });
+        } catch {
+          /* historique non bloquant */
+        }
       }
       qc.invalidateQueries({ queryKey: ["documents"] });
     } catch (e) {
@@ -333,6 +350,16 @@ function DocumentEditor({
     setDraft({ ...draft, donnees });
   }
 
+  function restoreVersion(v: DocVersion) {
+    setDraft({
+      ...draft,
+      titre: v.titre ?? draft.titre,
+      statut: v.statut ?? draft.statut,
+      donnees: v.donnees,
+    });
+    toast.success(`Version v${v.version} restaurée`, "Enregistrez pour confirmer");
+  }
+
   return (
     <ScreenContainer>
       {/* Toolbar (non imprimée) */}
@@ -365,6 +392,8 @@ function DocumentEditor({
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+        {/* Colonne gauche : champs + historique (non imprimée) */}
+        <div className="flex flex-col gap-4">
         {/* Éditeur de champs (non imprimé) */}
         <Card className="doc-toolbar h-fit p-4">
           <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.5px] uppercase">
@@ -400,6 +429,11 @@ function DocumentEditor({
             )}
           </div>
         </Card>
+
+          {draft.id && (
+            <DocumentVersions documentId={draft.id} onRestore={restoreVersion} />
+          )}
+        </div>
 
         {/* Aperçu A4 (imprimé) */}
         <div className="overflow-x-auto">

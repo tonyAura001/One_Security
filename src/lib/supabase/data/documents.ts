@@ -109,3 +109,63 @@ export async function deleteDocument(id: string): Promise<void> {
   const { error } = await supabase.from("Document").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ── Versionnage (J4.1) ───────────────────────────────────────────────────
+
+export interface DocVersion {
+  id: string;
+  version: number;
+  titre: string | null;
+  statut: string | null;
+  donnees: DocumentData;
+  createdAt: string;
+}
+
+interface DbVersion {
+  id: string;
+  version: number;
+  titre: string | null;
+  statut: string | null;
+  donnees: DocumentData;
+  createdAt: string;
+}
+
+/** Instantanés d'un document (du plus récent au plus ancien). */
+export async function fetchVersions(documentId: string): Promise<DocVersion[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("DocumentVersion")
+    .select("id,version,titre,statut,donnees,createdAt")
+    .eq("documentId", documentId)
+    .order("version", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as DbVersion[]) ?? [];
+}
+
+/**
+ * Crée un instantané du document courant (numéro de version = max + 1).
+ * À appeler après un enregistrement réussi.
+ */
+export async function snapshotDocument(
+  documentId: string,
+  snap: { titre: string; statut: string; donnees: DocumentData },
+): Promise<void> {
+  const supabase = createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const { data: last } = await supabase
+    .from("DocumentVersion")
+    .select("version")
+    .eq("documentId", documentId)
+    .order("version", { ascending: false })
+    .limit(1);
+  const next = ((last as { version: number }[] | null)?.[0]?.version ?? 0) + 1;
+  const { error } = await supabase.from("DocumentVersion").insert({
+    documentId,
+    version: next,
+    titre: snap.titre,
+    statut: snap.statut,
+    donnees: snap.donnees,
+    creeParId: auth.user?.id ?? null,
+  } as never);
+  if (error) throw error;
+}
