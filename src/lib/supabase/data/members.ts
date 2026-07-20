@@ -46,3 +46,16 @@ export async function fetchMembers(): Promise<Member[]> {
   if (error) throw error;
   return (data as unknown as DbUser[]).map(mapMember);
 }
+
+/** Active/suspend un membre (RLS users_update_admin : DG/RH). */
+export async function setMemberActif(id: string, actif: boolean): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("User")
+    .update({ actif } as never)
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: modification refusée (DG/RH requis).");
+}

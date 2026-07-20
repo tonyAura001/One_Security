@@ -1,14 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { Building2, Database, ShieldCheck, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Building2,
+  CheckCircle2,
+  Database,
+  Download,
+  KeyRound,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
-import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
+import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { ONE_SECURITY } from "@/lib/one-security";
+import { useSession } from "@/lib/store/session";
+import { createClient } from "@/lib/supabase/client";
+import { downloadCsv } from "@/lib/csv";
+import {
+  fetchParametres,
+  saveParametres,
+  PARAM_LABELS,
+  type Parametres,
+} from "@/lib/supabase/data/parametres";
+import { fetchMembers, setMemberActif } from "@/lib/supabase/data/members";
+import type { Member } from "@/lib/store/members";
 
 type Section = "entreprise" | "membres" | "securite" | "donnees";
 
@@ -19,40 +40,10 @@ const NAV: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: "donnees", label: "Données", icon: Database },
 ];
 
-const COMPANY_ROWS: { label: string; value: string; accent?: boolean }[] = [
-  { label: "NINEA", value: "005 812 447 2G3" },
-  { label: "Registre de commerce", value: "SN-DKR-2019-B-4821" },
-  { label: "Format de numérotation", value: "FAC-2025-XXX" },
-  { label: "Devise", value: "Franc CFA (XOF)" },
-  { label: "Thème par défaut", value: "Sombre", accent: true },
-  { label: "Signature numérique", value: "M. Diallo · activée" },
-];
-
-interface Member {
-  role: string;
-  holder: string;
-  status: "actif" | "invite";
-}
-
-const MEMBERS: Member[] = [
-  { role: "Directeur Général", holder: "M. Diallo", status: "actif" },
-  { role: "Comptable", holder: "Awa Ndiaye", status: "actif" },
-  { role: "Secrétaire", holder: "Bineta Fall", status: "actif" },
-  { role: "Recruteur", holder: "Modou Sy", status: "actif" },
-  { role: "Responsable Paie", holder: "Sokhna Mbaye", status: "actif" },
-  { role: "Chef de contrôle", holder: "Pape Diouf", status: "actif" },
-  { role: "Community Manager", holder: "Aïda Ka", status: "actif" },
-  { role: "Mainteneur", holder: "Lamine Faye", status: "invite" },
-  { role: "Caissier", holder: "Awa N.", status: "actif" },
-];
-
-const MEMBER_STATUS: Record<
-  Member["status"],
-  { variant: PillVariant; label: string }
-> = {
-  actif: { variant: "success", label: "Actif" },
-  invite: { variant: "warning", label: "Invité" },
-};
+const field =
+  "w-full rounded-[10px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50 disabled:opacity-60";
+const label =
+  "text-muted mb-1 block text-[11px] font-bold tracking-[0.4px] uppercase";
 
 export function SharedParametres() {
   const [section, setSection] = useState<Section>("entreprise");
@@ -60,7 +51,6 @@ export function SharedParametres() {
   return (
     <ScreenContainer>
       <div className="grid grid-cols-1 gap-[15px] lg:grid-cols-[240px_1fr] lg:items-start">
-        {/* Settings nav */}
         <Card className="flex flex-col gap-1 p-3">
           {NAV.map((item) => {
             const active = item.id === section;
@@ -85,7 +75,6 @@ export function SharedParametres() {
           })}
         </Card>
 
-        {/* Right panel */}
         <div>
           {section === "entreprise" && <EntreprisePanel />}
           {section === "membres" && <MembresPanel />}
@@ -97,231 +86,347 @@ export function SharedParametres() {
   );
 }
 
+// ── Entreprise : identité légale (fixe) + réglages éditables (persistés) ────
+
+const LEGAL: { label: string; value: string }[] = [
+  { label: "Raison sociale", value: ONE_SECURITY.name },
+  { label: "Activités", value: ONE_SECURITY.activites },
+  { label: "Adresse", value: ONE_SECURITY.adresse },
+  { label: "Téléphone", value: ONE_SECURITY.tel },
+  { label: "E-mail", value: ONE_SECURITY.email },
+  { label: "RCCM", value: ONE_SECURITY.rccm },
+  { label: "NINEA", value: ONE_SECURITY.ninea },
+  { label: "Capital", value: ONE_SECURITY.capital },
+  { label: "PDG", value: ONE_SECURITY.pdg },
+];
+
 function EntreprisePanel() {
+  const qc = useQueryClient();
+  const { role } = useSession();
+  const canEdit = role === "dg" || role === "rp";
+  const { data } = useQuery({ queryKey: ["parametres"], queryFn: fetchParametres });
+  const [form, setForm] = useState<Parametres>({});
+  useEffect(() => {
+    if (data) setForm(data);
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => saveParametres(form),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["parametres"] });
+      toast.success("Réglages enregistrés");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level|refusé|policy/i.test(msg)
+          ? "Accès refusé (DG/RP requis)."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
+
   return (
-    <Card className="p-[20px]">
-      <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
-        Configuration de l&apos;entreprise
-      </div>
-      <div className="border-border mb-4 flex items-center gap-3 border-b pb-4">
-        <span className="bg-accent flex size-[52px] flex-none items-center justify-center rounded-[14px] text-white">
-          <Building2 className="size-6" strokeWidth={1.8} />
-        </span>
-        <div>
-          <div className="text-foreground text-[15px] font-extrabold">
-            Dakar Sécurité SARL
-          </div>
-          <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
-            Sécurité privée · Dakar, Sénégal
+    <div className="flex flex-col gap-[15px]">
+      <Card className="p-[20px]">
+        <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
+          Identité de l&apos;entreprise
+        </div>
+        <div className="border-border mb-4 flex items-center gap-3 border-b pb-4">
+          <span className="bg-accent flex size-[52px] flex-none items-center justify-center rounded-[14px] text-white">
+            <Building2 className="size-6" strokeWidth={1.8} />
+          </span>
+          <div>
+            <div className="text-foreground text-[15px] font-extrabold">
+              {ONE_SECURITY.name}
+            </div>
+            <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
+              {ONE_SECURITY.slogan}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-col gap-3.5">
-        {COMPANY_ROWS.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between gap-3"
-          >
-            <span className="text-muted text-[12.5px] font-semibold">
-              {row.label}
-            </span>
-            <span
-              className={cn(
-                "text-[12.5px] font-bold",
-                row.accent ? "text-accent" : "text-foreground",
+        <div className="flex flex-col gap-3">
+          {LEGAL.map((row) => (
+            <div key={row.label} className="flex items-start justify-between gap-4">
+              <span className="text-muted flex-none text-[12.5px] font-semibold">
+                {row.label}
+              </span>
+              <span className="text-foreground text-right text-[12.5px] font-bold">
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="text-muted mt-3 text-[10.5px] font-medium">
+          Identité légale (source des documents officiels), non éditable ici.
+        </p>
+      </Card>
+
+      <Card className="p-[20px]">
+        <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
+          Réglages applicatifs
+        </div>
+        <div className="flex flex-col gap-3.5">
+          {PARAM_LABELS.map((p) => (
+            <div key={p.cle}>
+              <label className={label}>{p.label}</label>
+              {p.cle === "theme_defaut" ? (
+                <select
+                  className={field}
+                  value={form[p.cle] ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm((f) => ({ ...f, [p.cle]: e.target.value }))}
+                >
+                  <option value="sombre">Sombre</option>
+                  <option value="clair">Clair</option>
+                </select>
+              ) : (
+                <input
+                  className={field}
+                  value={form[p.cle] ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm((f) => ({ ...f, [p.cle]: e.target.value }))}
+                />
               )}
-            >
-              {row.value}
-            </span>
-          </div>
-        ))}
-      </div>
-      <Button
-        variant="secondary"
-        className="mt-[18px] w-full"
-        onClick={() => toast.info("Édition de la configuration ouverte")}
-      >
-        Modifier la configuration
-      </Button>
-    </Card>
+            </div>
+          ))}
+        </div>
+        {canEdit ? (
+          <Button
+            className="mt-[18px] w-full"
+            disabled={save.isPending}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending ? "Enregistrement…" : "Enregistrer les réglages"}
+          </Button>
+        ) : (
+          <p className="text-muted mt-4 text-[11.5px] font-semibold">
+            Seuls la Direction (DG) et les Responsables (RP) peuvent modifier ces réglages.
+          </p>
+        )}
+      </Card>
+    </div>
   );
 }
 
+// ── Membres : liste réelle (table User) + activer/suspendre ─────────────────
+
 function MembresPanel() {
+  const qc = useQueryClient();
+  const { role } = useSession();
+  const canManage = role === "dg" || role === "rh";
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ["members"],
+    queryFn: fetchMembers,
+  });
+
+  const mut = useMutation({
+    mutationFn: ({ id, actif }: { id: string; actif: boolean }) =>
+      setMemberActif(id, actif),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Statut du membre mis à jour");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(
+        /row-level|refusé|policy/i.test(msg)
+          ? "Accès refusé (DG/RH requis)."
+          : `Échec : ${msg}`,
+      );
+    },
+  });
+
   return (
     <Card className="p-[20px]">
       <div className="mb-4 flex items-center justify-between">
         <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-          Gestion des utilisateurs &amp; rôles
+          Membres &amp; rôles
         </div>
         <span className="text-muted text-[11px] font-bold">
-          {MEMBERS.length} rôles
+          {members.length} membre{members.length !== 1 ? "s" : ""}
         </span>
       </div>
 
-      <div className="border-border text-muted flex items-center gap-3.5 border-b px-1 pb-2.5 text-[10.5px] font-bold tracking-[0.4px] uppercase">
-        <div className="flex-[1.2]">Rôle</div>
-        <div className="flex-[1.2]">Titulaire</div>
-        <div className="w-[90px] text-right">Statut</div>
-      </div>
+      {isLoading ? (
+        <p className="text-muted text-[12.5px] font-semibold">Chargement…</p>
+      ) : members.length === 0 ? (
+        <p className="text-muted text-[12.5px] font-semibold">
+          Aucun membre visible (accès réservé DG/RH).
+        </p>
+      ) : (
+        <div className="flex flex-col">
+          {members.map((m: Member, i) => {
+            const actif = m.statut === "actif";
+            return (
+              <div
+                key={m.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-3 py-3",
+                  i < members.length - 1 && "border-border border-b",
+                )}
+              >
+                <span className="bg-active text-accent flex size-9 flex-none items-center justify-center rounded-full text-[11px] font-bold">
+                  {m.initials}
+                </span>
+                <div className="min-w-0 flex-[1.4]">
+                  <div className="text-foreground truncate text-[12.5px] font-bold">
+                    {m.name}
+                  </div>
+                  <div className="text-muted truncate text-[11px] font-semibold">
+                    {m.email}
+                  </div>
+                </div>
+                <div className="text-muted flex-1 text-[12px] font-semibold">
+                  {m.roleLabel}
+                </div>
+                <StatusPill variant={actif ? "success" : "warning"} uppercase>
+                  {actif ? "Actif" : "Suspendu"}
+                </StatusPill>
+                {canManage && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={mut.isPending}
+                    onClick={() => mut.mutate({ id: m.id, actif: !actif })}
+                  >
+                    {actif ? "Suspendre" : "Réactiver"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      {MEMBERS.map((member, i) => {
-        const meta = MEMBER_STATUS[member.status];
-        return (
-          <div
-            key={member.role}
-            className={cn(
-              "flex items-center gap-3.5 px-1 py-3",
-              i < MEMBERS.length - 1 && "border-border border-b",
-            )}
-          >
-            <div className="text-foreground flex-[1.2] text-[12.5px] font-bold">
-              {member.role}
-            </div>
-            <div className="text-muted flex-[1.2] text-[12px] font-semibold">
-              {member.holder}
-            </div>
-            <div className="flex w-[90px] justify-end">
-              <StatusPill variant={meta.variant} uppercase>
-                {meta.label}
-              </StatusPill>
-            </div>
-          </div>
-        );
-      })}
-
-      <Button
-        className="mt-4"
-        size="sm"
-        onClick={() => toast.success("Invitation d'un nouveau membre lancée")}
-      >
-        Inviter un membre
-      </Button>
+      <p className="text-muted mt-3 text-[10.5px] font-medium">
+        Le rôle est attribué à la création du compte. La suspension révoque
+        l&apos;accès du membre à la plateforme.
+      </p>
     </Card>
   );
 }
 
-interface SecurityToggle {
-  id: string;
-  title: string;
-  detail: string;
-  enabled: boolean;
-}
+// ── Sécurité : changement de mot de passe réel + état de sécurité honnête ────
 
 function SecuritePanel() {
-  const [toggles, setToggles] = useState<SecurityToggle[]>([
-    {
-      id: "2fa",
-      title: "Double authentification (2FA)",
-      detail: "Vérification par code à chaque connexion",
-      enabled: true,
-    },
-    {
-      id: "sessions",
-      title: "Déconnexion automatique des sessions",
-      detail: "Fermeture après 30 min d'inactivité",
-      enabled: true,
-    },
-    {
-      id: "logs",
-      title: "Journalisation des accès",
-      detail: "Historique des connexions et actions sensibles",
-      enabled: false,
-    },
-  ]);
+  const [pwd, setPwd] = useState("");
+  const [confirm, setConfirm] = useState("");
 
-  const toggle = (id: string) => {
-    setToggles((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const next = !t.enabled;
-        toast.info(`${t.title} — ${next ? "activée" : "désactivée"}`);
-        return { ...t, enabled: next };
-      }),
-    );
-  };
+  const change = useMutation({
+    mutationFn: async () => {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: pwd });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Mot de passe modifié");
+      setPwd("");
+      setConfirm("");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Échec : ${msg}`);
+    },
+  });
+
+  const valid = pwd.length >= 8 && pwd === confirm;
+
+  const STATUS: { title: string; detail: string }[] = [
+    { title: "Chiffrement en transit (TLS/HTTPS)", detail: "HSTS activé (2 ans, preload)" },
+    { title: "Isolation des données (RLS)", detail: "Activée sur 100 % des tables" },
+    {
+      title: "En-têtes de sécurité",
+      detail: "X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy",
+    },
+    { title: "Authentification", detail: "Session Supabase (JWT), déconnexion disponible" },
+  ];
 
   return (
-    <Card className="p-[20px]">
-      <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
-        Sécurité &amp; accès
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {toggles.map((t) => (
-          <div
-            key={t.id}
-            className="border-border bg-surface2 flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
-          >
-            <div className="min-w-0">
-              <div className="text-foreground text-[13px] font-bold">
-                {t.title}
-              </div>
-              <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
-                {t.detail}
+    <div className="flex flex-col gap-[15px]">
+      <Card className="p-[20px]">
+        <div className="text-foreground mb-4 flex items-center gap-2 text-[15px] font-extrabold tracking-[-0.3px]">
+          <KeyRound className="size-4" /> Changer mon mot de passe
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (valid) change.mutate();
+          }}
+          className="flex flex-col gap-3.5"
+        >
+          <div>
+            <label className={label}>Nouveau mot de passe</label>
+            <input
+              type="password"
+              className={field}
+              value={pwd}
+              onChange={(e) => setPwd(e.target.value)}
+              placeholder="8 caractères minimum"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className={label}>Confirmer</label>
+            <input
+              type="password"
+              className={field}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          {confirm.length > 0 && pwd !== confirm && (
+            <p className="text-danger text-[11.5px] font-semibold">
+              Les mots de passe ne correspondent pas.
+            </p>
+          )}
+          <Button type="submit" disabled={!valid || change.isPending}>
+            {change.isPending ? "Modification…" : "Mettre à jour le mot de passe"}
+          </Button>
+        </form>
+      </Card>
+
+      <Card className="p-[20px]">
+        <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
+          État de sécurité
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {STATUS.map((s) => (
+            <div
+              key={s.title}
+              className="border-border bg-surface2 flex items-start gap-3 rounded-xl border px-4 py-3"
+            >
+              <CheckCircle2 className="text-success mt-0.5 size-4 flex-none" />
+              <div className="min-w-0">
+                <div className="text-foreground text-[13px] font-bold">{s.title}</div>
+                <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
+                  {s.detail}
+                </div>
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={t.enabled}
-              aria-label={t.title}
-              onClick={() => toggle(t.id)}
-              className={cn(
-                "relative h-6 w-11 flex-none rounded-full transition-colors",
-                t.enabled ? "bg-accent" : "bg-surface2 border-border border",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-all",
-                  t.enabled ? "left-[22px]" : "left-0.5",
-                )}
-              />
-            </button>
-          </div>
-        ))}
-      </div>
-    </Card>
+          ))}
+        </div>
+      </Card>
+    </div>
   );
 }
 
+// ── Données : export réel + informations honnêtes ───────────────────────────
+
 function DonneesPanel() {
-  const actions: {
-    title: string;
-    detail: string;
-    label: string;
-    variant: "default" | "outline" | "destructive";
-    onClick: () => void;
-  }[] = [
-    {
-      title: "Export des données",
-      detail: "Télécharger l'ensemble des données au format CSV / Excel",
-      label: "Exporter",
-      variant: "default",
-      onClick: () => toast.success("Export des données lancé"),
+  const exportMembers = useMutation({
+    mutationFn: async () => {
+      const members = await fetchMembers();
+      const rows: (string | number)[][] = [
+        ["Nom", "E-mail", "Téléphone", "Rôle", "Statut"],
+        ...members.map((m) => [m.name, m.email, m.phone, m.roleLabel, m.statut]),
+      ];
+      downloadCsv("membres-pilotepme", rows);
     },
-    {
-      title: "Conformité APDP",
-      detail: "Registre de traitement des données personnelles (Sénégal)",
-      label: "Consulter",
-      variant: "outline",
-      onClick: () => toast.info("Registre APDP ouvert"),
-    },
-    {
-      title: "Sauvegarde automatique",
-      detail: "Dernière sauvegarde le 03/07/2026 · quotidienne",
-      label: "Sauvegarder",
-      variant: "outline",
-      onClick: () => toast.success("Sauvegarde manuelle déclenchée"),
-    },
-    {
-      title: "Purge des données",
-      detail: "Suppression définitive des données archivées",
-      label: "Purger",
-      variant: "destructive",
-      onClick: () => toast.warning("Confirmation requise pour la purge"),
-    },
-  ];
+    onSuccess: () => toast.success("Export des membres téléchargé"),
+    onError: () => toast.error("Export refusé (accès requis)."),
+  });
 
   return (
     <Card className="p-[20px]">
@@ -329,24 +434,37 @@ function DonneesPanel() {
         Données &amp; conformité
       </div>
       <div className="flex flex-col gap-2.5">
-        {actions.map((a) => (
-          <div
-            key={a.title}
-            className="border-border bg-surface2 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3"
-          >
-            <div className="min-w-0">
-              <div className="text-foreground text-[13px] font-bold">
-                {a.title}
-              </div>
-              <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
-                {a.detail}
-              </div>
+        <div className="border-border bg-surface2 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-foreground text-[13px] font-bold">Export des membres</div>
+            <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
+              Télécharger la liste des utilisateurs au format Excel/CSV
             </div>
-            <Button size="sm" variant={a.variant} onClick={a.onClick}>
-              {a.label}
-            </Button>
           </div>
-        ))}
+          <Button
+            size="sm"
+            disabled={exportMembers.isPending}
+            onClick={() => exportMembers.mutate()}
+          >
+            <Download className="size-4" /> Exporter
+          </Button>
+        </div>
+
+        <div className="border-border bg-surface2 rounded-xl border px-4 py-3">
+          <div className="text-foreground text-[13px] font-bold">Sauvegardes</div>
+          <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
+            Sauvegardes automatiques quotidiennes gérées par Supabase (Point-in-Time
+            Recovery selon l&apos;abonnement). Export manuel via l&apos;administration.
+          </div>
+        </div>
+
+        <div className="border-border bg-surface2 rounded-xl border px-4 py-3">
+          <div className="text-foreground text-[13px] font-bold">Conformité APDP (Sénégal)</div>
+          <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
+            Données protégées par isolation par rôle (RLS). Registre de traitement à
+            tenir par la Direction.
+          </div>
+        </div>
       </div>
     </Card>
   );
