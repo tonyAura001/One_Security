@@ -49,7 +49,6 @@ describe("RBAC — contrôle d'accès", () => {
 
   it("les écrans non câblés sont bloqués pour TOUS (y compris DG)", () => {
     const hidden: ScreenKey[] = [
-      "satisfaction",
       "bibliotheque",
       "pos",
     ];

@@ -1,243 +1,163 @@
 "use client";
 
-import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Star } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Star } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { DataTable } from "@/components/ui/data-table";
 import { Card } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
 import {
-  CHART_COLORS,
-  ChartCard,
-  ChartTooltip,
-} from "@/components/ui/chart-card";
-import {
-  getAudits,
-  getIncidents,
-  getSatisfactionSeries,
-  getSatisfactionStats,
-  auditTone,
-  AUDIT_STATUS_META,
-  INCIDENT_SEVERITY_META,
-  INCIDENT_STATUS_META,
-  INCIDENT_TYPE_META,
-  type Incident,
-  type SiteAudit,
-} from "@/lib/api/satisfaction";
-import { toneText } from "@/lib/colors";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { toast } from "@/lib/toast";
 import { formatDateFR } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { fetchSiteOptions } from "@/lib/supabase/data/options";
+import { fetchAudits, createAudit } from "@/lib/supabase/data/satisfaction";
 
-const auditColumns: ColumnDef<SiteAudit>[] = [
-  {
-    accessorKey: "site",
-    header: "Site",
-    cell: ({ row }) => (
-      <span className="text-foreground font-bold">{row.original.site}</span>
-    ),
-  },
-  {
-    accessorKey: "date",
-    header: "Date",
-    cell: ({ row }) => (
-      <span className="text-muted font-semibold whitespace-nowrap">
-        {formatDateFR(row.original.date, "d MMM yyyy")}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "auditor",
-    header: "Auditeur",
-    cell: ({ row }) => (
-      <span className="text-muted font-semibold">{row.original.auditor}</span>
-    ),
-  },
-  {
-    accessorKey: "score",
-    header: "Score",
-    cell: ({ row }) => (
-      <span
-        className={cn(
-          "tnum font-extrabold",
-          toneText[auditTone(row.original.score)],
-        )}
-      >
-        {row.original.score}/100
-      </span>
-    ),
-  },
-  {
-    id: "nc",
-    header: "Non-conformités",
-    cell: ({ row }) => {
-      const nc = row.original.nonConformities;
-      if (nc.length === 0)
-        return <span className="text-muted font-semibold">—</span>;
-      return (
-        <span className="text-muted font-semibold" title={nc.join(" · ")}>
-          {nc.length} point{nc.length > 1 ? "s" : ""}
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Statut",
-    cell: ({ row }) => {
-      const meta = AUDIT_STATUS_META[row.original.status];
-      return <StatusPill variant={meta.variant}>{meta.label}</StatusPill>;
-    },
-  },
-];
+const field =
+  "w-full rounded-[10px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
+const label = "text-muted mb-1 block text-[11px] font-bold tracking-[0.4px] uppercase";
+
+function scoreMeta(score: number): { variant: PillVariant; text: string } {
+  if (score >= 80) return { variant: "success", text: "text-success" };
+  if (score >= 60) return { variant: "warning", text: "text-warning" };
+  return { variant: "danger", text: "text-danger" };
+}
 
 export function SatisfactionScreen() {
-  const series = useMemo(() => getSatisfactionSeries(), []);
-  const audits = useMemo(() => getAudits(), []);
-  const incidents = useMemo(() => getIncidents(), []);
-  const stats = useMemo(() => getSatisfactionStats(), []);
+  const { data: audits = [] } = useQuery({ queryKey: ["audits"], queryFn: fetchAudits });
+  const avg = audits.length ? Math.round(audits.reduce((s, a) => s + a.score, 0) / audits.length) : 0;
+  const good = audits.filter((a) => a.score >= 80).length;
+  const bad = audits.filter((a) => a.score < 60).length;
 
   return (
     <ScreenContainer>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Satisfaction & audits</h1>
-          <p className="page-subtitle">
-            Qualité de service · audits de sites & incidents terrain
-          </p>
+          <h1 className="page-title">Satisfaction &amp; audits</h1>
+          <p className="page-subtitle">Qualité de service perçue sur les sites gardés</p>
         </div>
+        <NewAuditDialog />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          icon={Star}
-          tone="success"
-          value={stats.avgScore.toLocaleString("fr-FR", {
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1,
-          })}
-          unit="/5"
-          label="Satisfaction moyenne"
-        />
-        <KpiCard
-          icon={ClipboardCheck}
-          tone="accent"
-          value={String(stats.auditsThisMonth)}
-          label="Audits réalisés ce mois"
-        />
-        <KpiCard
-          icon={AlertTriangle}
-          tone="danger"
-          value={String(stats.openIncidents)}
-          label="Incidents ouverts"
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          tone="violet"
-          value={`${stats.resolutionRate} %`}
-          label="Taux de résolution"
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-[15px] lg:grid-cols-[1.4fr_1fr]">
-        <ChartCard
-          title="Évolution de la satisfaction"
-          subtitle="Score moyen /5 · 6 derniers mois"
-          height={230}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={series}
-              margin={{ top: 8, right: 8, bottom: 0, left: -16 }}
-            >
-              <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: CHART_COLORS.axis, fontSize: 12, fontWeight: 700 }}
-                dy={6}
-              />
-              <YAxis
-                domain={[0, 5]}
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: CHART_COLORS.axis, fontSize: 11, fontWeight: 700 }}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--hover)" }}
-                content={
-                  <ChartTooltip
-                    valueFormat={(v) => `${v.toFixed(1)} / 5`}
-                  />
-                }
-              />
-              <Bar
-                dataKey="score"
-                name="Satisfaction"
-                fill={CHART_COLORS.success}
-                radius={[6, 6, 0, 0]}
-                maxBarSize={40}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Incidents */}
-        <Card className="flex flex-col gap-2.5 p-4">
-          <div className="text-foreground text-[15px] font-extrabold tracking-[-0.3px]">
-            Incidents signalés
-          </div>
-          {incidents.map((inc) => (
-            <IncidentRow key={inc.id} incident={inc} />
-          ))}
+      <div className="mt-4 grid grid-cols-1 gap-[15px] sm:grid-cols-3">
+        <Card className="p-4">
+          <div className="text-muted text-[11px] font-semibold">Score moyen</div>
+          <div className={cn("mt-1 text-[22px] font-extrabold", scoreMeta(avg).text)}>{avg}/100</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-muted text-[11px] font-semibold">Sites bien notés (≥80)</div>
+          <div className="text-foreground mt-1 text-[22px] font-extrabold">{good}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-muted text-[11px] font-semibold">À surveiller (&lt;60)</div>
+          <div className={cn("mt-1 text-[22px] font-extrabold", bad > 0 ? "text-danger" : "text-foreground")}>{bad}</div>
         </Card>
       </div>
 
-      <div className="mt-4">
-        <div className="text-foreground mb-2.5 text-[15px] font-extrabold tracking-[-0.3px]">
-          Audits de sites
+      <Card className="mt-4 p-[18px_20px]">
+        <div className="text-foreground mb-3.5 text-[15px] font-extrabold tracking-[-0.3px]">
+          Audits récents
         </div>
-        <DataTable
-          columns={auditColumns}
-          data={audits}
-          searchable
-          searchPlaceholder="Rechercher un site…"
-          emptyTitle="Aucun audit"
-          emptyDescription="Aucun audit réalisé sur la période."
-        />
-      </div>
+        {audits.length === 0 ? (
+          <EmptyState icon={Star} title="Aucun audit" description="Enregistrez un audit de satisfaction d'un site." />
+        ) : (
+          <div className="flex flex-col">
+            {audits.map((a, i) => {
+              const m = scoreMeta(a.score);
+              return (
+                <div
+                  key={a.id}
+                  className={cn("flex flex-wrap items-center gap-3.5 py-3", i < audits.length - 1 && "border-border border-b")}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-foreground text-[13px] font-bold">{a.site}</div>
+                    <div className="text-muted mt-0.5 text-[11px] font-semibold">
+                      {a.auditeur ?? "—"} · {formatDateFR(a.date)}
+                      {a.commentaire ? ` · ${a.commentaire}` : ""}
+                    </div>
+                  </div>
+                  <StatusPill variant={m.variant} uppercase>{a.score}/100</StatusPill>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     </ScreenContainer>
   );
 }
 
-function IncidentRow({ incident }: { incident: Incident }) {
-  const sev = INCIDENT_SEVERITY_META[incident.severity];
-  const status = INCIDENT_STATUS_META[incident.status];
+function NewAuditDialog() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [siteId, setSiteId] = useState("");
+  const [auditeur, setAuditeur] = useState("");
+  const [score, setScore] = useState("80");
+  const [commentaire, setCommentaire] = useState("");
+
+  const { data: sites } = useQuery({ queryKey: ["site-options"], queryFn: fetchSiteOptions });
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      createAudit({ siteId: siteId || null, auditeur, score: Number(score) || 0, commentaire }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["audits"] });
+      toast.success("Audit enregistré");
+      setSiteId("");
+      setAuditeur("");
+      setScore("80");
+      setCommentaire("");
+      setOpen(false);
+    },
+    onError: (e: unknown) => toast.error(/row-level|refus/i.test(String(e)) ? "Accès refusé (DG/RP/Manager)." : `Échec : ${e instanceof Error ? e.message : e}`),
+  });
+  const valid = Number(score) >= 0 && Number(score) <= 100;
+
   return (
-    <div className="border-border bg-surface2 flex items-center gap-3 rounded-xl border p-3">
-      <div className="min-w-0 flex-1">
-        <div className="text-foreground text-[12.5px] font-bold">
-          {INCIDENT_TYPE_META[incident.type]}
-        </div>
-        <div className="text-muted text-[11px] font-semibold">
-          {incident.site} · {formatDateFR(incident.date, "d MMM")}
-        </div>
-      </div>
-      <StatusPill variant={sev.variant}>{sev.label}</StatusPill>
-      <StatusPill variant={status.variant} dot>
-        {status.label}
-      </StatusPill>
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="size-4" /> Nouvel audit</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-[440px]">
+        <DialogHeader><DialogTitle>Nouvel audit de satisfaction</DialogTitle></DialogHeader>
+        <form onSubmit={(e) => { e.preventDefault(); if (valid) mutation.mutate(); }} className="flex flex-col gap-3.5">
+          <div>
+            <label className={label}>Site</label>
+            <select className={field} value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+              <option value="">— Sélectionner —</option>
+              {(sites ?? []).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label}>Auditeur</label>
+              <input className={field} value={auditeur} onChange={(e) => setAuditeur(e.target.value)} placeholder="Nom" />
+            </div>
+            <div>
+              <label className={label}>Score /100 *</label>
+              <input inputMode="numeric" className={field} value={score} onChange={(e) => setScore(e.target.value.replace(/[^\d]/g, "").slice(0, 3))} />
+            </div>
+          </div>
+          <div>
+            <label className={label}>Commentaire</label>
+            <textarea className={`${field} min-h-[70px] resize-y`} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
+          </div>
+          <DialogFooter className="mt-1">
+            <DialogClose asChild><Button type="button" variant="outline" size="sm">Annuler</Button></DialogClose>
+            <Button type="submit" size="sm" disabled={!valid || mutation.isPending}>{mutation.isPending ? "…" : "Enregistrer"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
