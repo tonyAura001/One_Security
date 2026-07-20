@@ -1,21 +1,20 @@
 name: Frontend CI
 
-# Qualité : lint + build du frontend Next.js à chaque push/PR sur main
-# (ne tourne pas sur les changements backend apps/api, qui ont leur propre CI).
+# Qualité : typecheck + tests (non-régression) + build du frontend Next.js à
+# chaque push/PR sur main (hors changements backend apps/api, qui ont leur
+# propre CI). Le lint tourne en informatif (dette pré-existante à résorber).
 on:
   push:
     branches: [main]
     paths-ignore:
       - 'apps/api/**'
-      - 'supabase/**'
   pull_request:
     branches: [main]
     paths-ignore:
       - 'apps/api/**'
-      - 'supabase/**'
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +24,24 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec tsc --noEmit
-      - run: pnpm build
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # ── Gates durs (bloquants) ─────────────────────────────────────────────
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Tests unitaires (Vitest)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+      # ── Informatif (non bloquant tant que la dette lint n'est pas résorbée) ─
+      - name: Lint (informatif)
+        run: pnpm lint
+        continue-on-error: true
