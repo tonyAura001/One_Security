@@ -26,6 +26,7 @@ import {
   fetchParametres,
   saveParametres,
   PARAM_LABELS,
+  COMPANY_FIELDS,
   type Parametres,
 } from "@/lib/supabase/data/parametres";
 import { fetchMembers, setMemberActif } from "@/lib/supabase/data/members";
@@ -86,19 +87,7 @@ export function SharedParametres() {
   );
 }
 
-// ── Entreprise : identité légale (fixe) + réglages éditables (persistés) ────
-
-const LEGAL: { label: string; value: string }[] = [
-  { label: "Raison sociale", value: ONE_SECURITY.name },
-  { label: "Activités", value: ONE_SECURITY.activites },
-  { label: "Adresse", value: ONE_SECURITY.adresse },
-  { label: "Téléphone", value: ONE_SECURITY.tel },
-  { label: "E-mail", value: ONE_SECURITY.email },
-  { label: "RCCM", value: ONE_SECURITY.rccm },
-  { label: "NINEA", value: ONE_SECURITY.ninea },
-  { label: "Capital", value: ONE_SECURITY.capital },
-  { label: "PDG", value: ONE_SECURITY.pdg },
-];
+// ── Entreprise : identité (éditable par DG/RP) + réglages, tout persisté ────
 
 function EntreprisePanel() {
   const qc = useQueryClient();
@@ -107,14 +96,19 @@ function EntreprisePanel() {
   const { data } = useQuery({ queryKey: ["parametres"], queryFn: fetchParametres });
   const [form, setForm] = useState<Parametres>({});
   useEffect(() => {
-    if (data) setForm(data);
+    if (data) {
+      // Pré-remplir l'identité avec les défauts du code si non encore enregistrée.
+      const next: Parametres = { ...data };
+      for (const f of COMPANY_FIELDS) if (next[f.cle] === undefined) next[f.cle] = f.defaut;
+      setForm(next);
+    }
   }, [data]);
 
   const save = useMutation({
     mutationFn: () => saveParametres(form),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["parametres"] });
-      toast.success("Réglages enregistrés");
+      toast.success("Enregistré");
     },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
@@ -125,6 +119,7 @@ function EntreprisePanel() {
       );
     },
   });
+  const set = (cle: string, v: string) => setForm((f) => ({ ...f, [cle]: v }));
 
   return (
     <div className="flex flex-col gap-[15px]">
@@ -138,28 +133,52 @@ function EntreprisePanel() {
           </span>
           <div>
             <div className="text-foreground text-[15px] font-extrabold">
-              {ONE_SECURITY.name}
+              {form["entreprise_name"] || ONE_SECURITY.name}
             </div>
             <div className="text-muted mt-0.5 text-[11.5px] font-semibold">
-              {ONE_SECURITY.slogan}
+              {form["entreprise_slogan"] || ONE_SECURITY.slogan}
             </div>
           </div>
         </div>
-        <div className="flex flex-col gap-3">
-          {LEGAL.map((row) => (
-            <div key={row.label} className="flex items-start justify-between gap-4">
-              <span className="text-muted flex-none text-[12.5px] font-semibold">
-                {row.label}
-              </span>
-              <span className="text-foreground text-right text-[12.5px] font-bold">
-                {row.value}
-              </span>
+
+        {canEdit ? (
+          <div className="flex flex-col gap-3.5">
+            {COMPANY_FIELDS.map((f) => (
+              <div key={f.cle}>
+                <label className={label}>{f.label}</label>
+                {f.textarea ? (
+                  <textarea
+                    className={`${field} min-h-[54px] resize-y`}
+                    value={form[f.cle] ?? ""}
+                    onChange={(e) => set(f.cle, e.target.value)}
+                  />
+                ) : (
+                  <input className={field} value={form[f.cle] ?? ""} onChange={(e) => set(f.cle, e.target.value)} />
+                )}
+              </div>
+            ))}
+            <Button className="mt-1 w-full" disabled={save.isPending} onClick={() => save.mutate()}>
+              {save.isPending ? "Enregistrement…" : "Enregistrer l'identité"}
+            </Button>
+            <p className="text-muted text-[10.5px] font-medium">
+              Ces informations alimentent les documents officiels (en-tête, pied, cachet).
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-3">
+              {COMPANY_FIELDS.map((f) => (
+                <div key={f.cle} className="flex items-start justify-between gap-4">
+                  <span className="text-muted flex-none text-[12.5px] font-semibold">{f.label}</span>
+                  <span className="text-foreground text-right text-[12.5px] font-bold">{form[f.cle] || f.defaut}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <p className="text-muted mt-3 text-[10.5px] font-medium">
-          Identité légale (source des documents officiels), non éditable ici.
-        </p>
+            <p className="text-muted mt-3 text-[10.5px] font-medium">
+              Modifiable par la Direction (DG) et les Responsables (RP).
+            </p>
+          </>
+        )}
       </Card>
 
       <Card className="p-[20px]">

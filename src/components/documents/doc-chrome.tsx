@@ -1,10 +1,14 @@
+"use client";
+
 import type { ReactNode } from "react";
 
-import { ONE_SECURITY, OS_COLORS } from "@/lib/one-security";
+import { OS_COLORS } from "@/lib/one-security";
+import { useCompanyIdentity } from "@/lib/documents/use-identity";
 
 /**
  * Chrome partagé des documents A4 (en-tête, pied, cachet, page).
- * Composants purement présentationnels — aucun hook, donc pas de "use client".
+ * L'identité (nom, adresse, RCCM…) provient de `useCompanyIdentity` : défauts
+ * du code surchargés par les réglages éditables par le DG (table Parametre).
  * Le logo est recréé en CSS/texte (aucun fichier image disponible).
  */
 
@@ -64,6 +68,7 @@ export function A4Page({ children }: { children: ReactNode }) {
 
 /** En-tête / papier à en-tête. */
 export function DocHeader() {
+  const os = useCompanyIdentity();
   return (
     <header className="mb-6 flex items-start justify-between">
       <LogoBlock />
@@ -72,16 +77,16 @@ export function DocHeader() {
           className="font-bold leading-tight"
           style={{ fontSize: 18, color: OS_COLORS.navy }}
         >
-          {ONE_SECURITY.name}
+          {os.name}
         </div>
         <div className="mt-1" style={{ fontSize: 9, color: "#6b7280" }}>
-          {ONE_SECURITY.activites}
+          {os.activites}
         </div>
         <div
           className="mt-0.5 italic"
           style={{ fontSize: 9, color: OS_COLORS.gold }}
         >
-          {ONE_SECURITY.slogan}
+          {os.slogan}
         </div>
       </div>
     </header>
@@ -90,18 +95,17 @@ export function DocHeader() {
 
 /** Pied de page : bandeau marine avec mentions légales. */
 export function DocFooter() {
+  const os = useCompanyIdentity();
   return (
     <footer
       className="mt-6 rounded-lg px-4 py-2 text-center text-white/80"
       style={{ background: OS_COLORS.navy, fontSize: 8.5, lineHeight: 1.5 }}
     >
       <div>
-        {ONE_SECURITY.name} au capital de {ONE_SECURITY.capital} | RCCM :{" "}
-        {ONE_SECURITY.rccm} | Ninéa : {ONE_SECURITY.ninea}
+        {os.name} au capital de {os.capital} | RCCM : {os.rccm} | Ninéa : {os.ninea}
       </div>
       <div>
-        {ONE_SECURITY.adresse} | Tél : {ONE_SECURITY.tel} | Email :{" "}
-        {ONE_SECURITY.email} | {ONE_SECURITY.web}
+        {os.adresse} | Tél : {os.tel} | Email : {os.email} | {os.web}
       </div>
     </footer>
   );
@@ -109,6 +113,7 @@ export function DocFooter() {
 
 /** Zone signature + cachet rond façon tampon caoutchouc. */
 export function DocStamp({ label }: { label?: string }) {
+  const os = useCompanyIdentity();
   return (
     <div className="mt-8 flex flex-col items-end">
       <div
@@ -119,7 +124,7 @@ export function DocStamp({ label }: { label?: string }) {
           borderBottom: `2px solid ${OS_COLORS.gold}`,
         }}
       >
-        {label ?? ONE_SECURITY.comptabilite}
+        {label ?? os.comptabilite}
       </div>
       <div
         className="mt-3 flex flex-col items-center justify-center rounded-full text-center"
@@ -142,7 +147,7 @@ export function DocStamp({ label }: { label?: string }) {
           <OneMarkNavy />
         </div>
         <span style={{ fontSize: 6.5, lineHeight: 1.3 }}>
-          RC : {ONE_SECURITY.rccm}
+          RC : {os.rccm}
         </span>
         <span className="mt-0.5 uppercase" style={{ fontSize: 6 }}>
           Suarl · Dakar

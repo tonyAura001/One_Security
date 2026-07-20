@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { fetchProspectOptions } from "@/lib/supabase/data/options";
 import { createQuote } from "@/lib/supabase/data/quotes";
-import { ONE_SECURITY } from "@/lib/one-security";
+import { useCompanyIdentity } from "@/lib/documents/use-identity";
 import { formatFCFA } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
@@ -41,6 +41,7 @@ function FieldBox({
 
 export function SecretaireDevis() {
   const qc = useQueryClient();
+  const os = useCompanyIdentity();
   const { data: prospects = [] } = useQuery({
     queryKey: ["prospect-options"],
     queryFn: fetchProspectOptions,
@@ -193,10 +194,10 @@ export function SecretaireDevis() {
           <div className="mb-4 flex items-start justify-between border-b-2 border-[#0F1626] pb-3.5">
             <div>
               <div className="text-base font-extrabold text-[#0F1626]">
-                {ONE_SECURITY.name}
+                {os.name}
               </div>
               <div className="mt-[3px] text-[10px] font-semibold text-[#5B6577]">
-                {ONE_SECURITY.adresse} · NINEA {ONE_SECURITY.ninea}
+                {os.adresse} · NINEA {os.ninea}
               </div>
             </div>
             <div className="text-right">

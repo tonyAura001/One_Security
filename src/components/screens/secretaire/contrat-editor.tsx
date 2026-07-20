@@ -8,7 +8,7 @@ import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { ONE_SECURITY } from "@/lib/one-security";
+import { useCompanyIdentity } from "@/lib/documents/use-identity";
 import { formatDateFR } from "@/lib/format";
 import { fetchClientOptions, fetchSiteOptions } from "@/lib/supabase/data/options";
 import { createContract } from "@/lib/supabase/data/contracts";
@@ -33,6 +33,7 @@ const inputCls =
 
 export function SecretaireContratEditor() {
   const qc = useQueryClient();
+  const os = useCompanyIdentity();
   const { data: clients = [] } = useQuery({ queryKey: ["client-options"], queryFn: fetchClientOptions });
   const { data: sites = [] } = useQuery({ queryKey: ["site-options"], queryFn: fetchSiteOptions });
 
@@ -112,7 +113,7 @@ export function SecretaireContratEditor() {
               CONTRAT DE PRESTATION DE GARDIENNAGE
             </div>
             <p className="mb-3 text-[11.5px] leading-[1.7] font-semibold">
-              Entre <Var>{ONE_SECURITY.name}</Var>, ci-après « le Prestataire », et{" "}
+              Entre <Var>{os.name}</Var>, ci-après « le Prestataire », et{" "}
               <Var>{clientLabel}</Var>, ci-après « le Client ».
             </p>
             <p className="mb-3 text-[11.5px] leading-[1.7] font-semibold">
