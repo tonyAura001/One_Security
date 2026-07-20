@@ -1,21 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Bell, CalendarClock, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { IconTile } from "@/components/ui/icon-tile";
 import type { Tone } from "@/lib/colors";
-import { NOTIFICATIONS } from "@/lib/api/data";
-import type { AppNotification } from "@/lib/api/types";
+import { fetchNotifications, type NotifTone } from "@/lib/supabase/data/notifications";
 import { formatRelative } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
-const toneMeta: Record<
-  AppNotification["tone"],
-  { tone: Tone; icon: LucideIcon }
-> = {
+const toneMeta: Record<NotifTone, { tone: Tone; icon: LucideIcon }> = {
   info: { tone: "accent", icon: Bell },
   success: { tone: "success", icon: Check },
   warning: { tone: "warning", icon: CalendarClock },
@@ -23,13 +21,7 @@ const toneMeta: Record<
 };
 
 export function CmNotifications() {
-  const feed = useMemo(
-    () =>
-      [...NOTIFICATIONS].sort(
-        (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
-      ),
-    [],
-  );
+  const { data: feed = [] } = useQuery({ queryKey: ["notifications"], queryFn: fetchNotifications });
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   const markAllRead = () => {
@@ -53,10 +45,13 @@ export function CmNotifications() {
           </button>
         </div>
 
+        {feed.length === 0 && (
+          <EmptyState title="Aucune notification" description="Les événements récents apparaîtront ici." />
+        )}
         <div className="flex flex-col">
           {feed.map((notif, index) => {
             const meta = toneMeta[notif.tone];
-            const unread = !notif.read && !readIds.has(notif.id);
+            const unread = !readIds.has(notif.id);
             return (
               <div
                 key={notif.id}

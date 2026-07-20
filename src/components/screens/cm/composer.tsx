@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Shield } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { ONE_SECURITY } from "@/lib/one-security";
+import { createPublication } from "@/lib/supabase/data/publications";
 
 const CHANNELS = ["LinkedIn", "Facebook", "Instagram"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -18,9 +21,10 @@ const channelBadge: Record<Channel, string> = {
 };
 
 const DEFAULT_TEXT =
-  "Dakar Sécurité renforce la sûreté du Port Autonome de Dakar 🇸🇳 avec une équipe dédiée 24h/24. Votre sérénité, notre métier. #SécuritéPrivée #Dakar #Gardiennage";
+  "One Security renforce la sûreté du Port Autonome de Dakar 🇸🇳 avec une équipe dédiée 24h/24. Votre sérénité, notre métier. #SécuritéPrivée #Dakar #Gardiennage";
 
 export function CmComposer() {
+  const qc = useQueryClient();
   const [selected, setSelected] = useState<Channel[]>(["LinkedIn", "Facebook"]);
   const [text, setText] = useState(DEFAULT_TEXT);
 
@@ -31,6 +35,27 @@ export function CmComposer() {
         : [...prev, channel],
     );
   };
+
+  const publish = useMutation({
+    mutationFn: (statut: "publie" | "planifie") => {
+      const titre = text.trim().split("\n")[0].slice(0, 70) || "Publication";
+      const today = new Date().toISOString().slice(0, 10);
+      return Promise.all(
+        selected.map((canal) =>
+          createPublication({ titre, canal, contenu: text, datePublication: today, statut }),
+        ),
+      );
+    },
+    onSuccess: (_r, statut) => {
+      qc.invalidateQueries({ queryKey: ["publications"] });
+      toast.success(statut === "publie" ? "Publication en ligne" : "Publication programmée");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(/row-level|refus/i.test(msg) ? "Accès refusé (CM)." : `Échec : ${msg}`);
+    },
+  });
+  const canPublish = selected.length > 0 && text.trim().length > 0 && !publish.isPending;
 
   return (
     <ScreenContainer>
@@ -93,13 +118,15 @@ export function CmComposer() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Button
               className="flex-1"
-              onClick={() => toast.success("Publication programmée")}
+              disabled={!canPublish}
+              onClick={() => publish.mutate("planifie")}
             >
               Programmer
             </Button>
             <Button
               variant="outline"
-              onClick={() => toast.success("Publication en ligne")}
+              disabled={!canPublish}
+              onClick={() => publish.mutate("publie")}
             >
               Publier maintenant
             </Button>
@@ -118,7 +145,7 @@ export function CmComposer() {
               </div>
               <div>
                 <div className="text-foreground text-[12.5px] font-extrabold">
-                  Dakar Sécurité
+                  {ONE_SECURITY.name}
                 </div>
                 <div className="text-muted text-[10px] font-semibold">
                   Vient de publier · 🌍

@@ -243,7 +243,16 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       GRP_JURIDIQUE,
       { key: "analytics", label: "Analytics", icon: "analytics" },
       { key: "rapports", label: "Rapports", icon: "chart" },
-      { key: "diffusion", label: "Diffusion", icon: "megaphone" },
+      {
+        label: "Communication",
+        icon: "megaphone",
+        children: [
+          { key: "calendrier", label: "Calendrier éditorial", icon: "calendar" },
+          { key: "composer", label: "Composer", icon: "edit" },
+          { key: "diffusion", label: "Diffusion", icon: "megaphone" },
+          { key: "notifications", label: "Notifications", icon: "bell" },
+        ],
+      },
       GRP_ADMIN,
     ],
   },
@@ -756,6 +765,8 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "recus",
   // Communication
   "calendrier",
+  "composer",
+  "notifications",
   // Maintenance
   "tickets",
   "interventions",
