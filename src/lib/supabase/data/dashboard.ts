@@ -31,7 +31,7 @@ export async function fetchDashboardKpis(): Promise<DashboardKpis> {
     supabase.from("Ticket").select("stage,criticite"),
     supabase.from("Tache").select("terminee,echeance"),
     supabase.from("Materiel").select("quantite"),
-    supabase.from("TicketCaisse").select("total,dateHeure"),
+    supabase.from("Vente").select("total,dateHeure"),
     supabase.from("Client").select("scoreSante"),
   ]);
 
@@ -69,4 +69,55 @@ export async function fetchDashboardKpis(): Promise<DashboardKpis> {
     caBoutique: ((tck.data ?? []) as { total: number }[]).reduce((s, t) => s + num(t.total), 0),
     scoreSanteCrm: scoreCrm,
   };
+}
+
+// ── Analytique (J3.2) ────────────────────────────────────────────────────
+
+export interface SalesPoint {
+  day: string; // JJ/MM
+  total: number;
+}
+/** Chiffre d'affaires boutique par jour sur les N derniers jours (défaut 14). */
+export async function fetchSalesDaily(days = 14): Promise<SalesPoint[]> {
+  const supabase = createClient();
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  since.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from("Vente")
+    .select("total,dateHeure")
+    .gte("dateHeure", since.toISOString());
+  if (error) throw error;
+  const rows = (data ?? []) as { total: number | string; dateHeure: string }[];
+
+  // Squelette de N jours à 0, puis addition.
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(since.getDate() + i);
+    buckets.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const r of rows) {
+    const key = new Date(r.dateHeure).toISOString().slice(0, 10);
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + num(r.total));
+  }
+  return [...buckets.entries()].map(([iso, total]) => {
+    const [, m, dd] = iso.split("-");
+    return { day: `${dd}/${m}`, total };
+  });
+}
+
+export interface StatutCount {
+  statut: string;
+  count: number;
+}
+/** Répartition des projets (déploiements) par statut. */
+export async function fetchProjetsByStatut(): Promise<StatutCount[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.from("Projet").select("statut");
+  if (error) throw error;
+  const rows = (data ?? []) as { statut: string }[];
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.statut, (counts.get(r.statut) ?? 0) + 1);
+  return [...counts.entries()].map(([statut, count]) => ({ statut, count }));
 }
