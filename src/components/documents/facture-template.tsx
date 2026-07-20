@@ -3,6 +3,7 @@ import type { WithSignature } from "@/lib/documents/types";
 
 import { ONE_SECURITY, OS_COLORS } from "@/lib/one-security";
 import { type FactureData, factureTotaux } from "@/lib/documents/types";
+import { montantEnLettres } from "@/lib/documents/montant-lettres";
 
 /** Format FCFA : séparateur de milliers par point, sans décimale. */
 function fmt(n: number): string {
@@ -206,7 +207,9 @@ export function FactureTemplate({
             minWidth: "45%",
             borderBottom: `1px solid ${OS_COLORS.navy}`,
           }}
-        />
+        >
+          {ttc > 0 ? montantEnLettres(ttc) : " "}
+        </span>
       </div>
 
       <DocSignatureBlock signature={(data as WithSignature).signature} />

@@ -40,6 +40,27 @@ function map(d: DbDoc): DocRecord {
   };
 }
 
+/**
+ * Récupère les données du proforma archivé pour un numéro de facture donné
+ * (le plus récent), afin de restaurer les lignes dans l'éditeur. Best-effort :
+ * renvoie null si aucun document ou si l'accès est refusé.
+ */
+export async function fetchFactureProforma(
+  numero: string,
+): Promise<DocumentData | null> {
+  if (!numero) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Document")
+    .select("donnees")
+    .eq("type", "facture_proforma")
+    .eq("numero", numero)
+    .order("updatedAt", { ascending: false })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+  return (data[0] as { donnees: DocumentData }).donnees ?? null;
+}
+
 export async function fetchDocuments(): Promise<DocRecord[]> {
   const supabase = createClient();
   // Le RLS filtre déjà selon la visibilité : les documents non autorisés

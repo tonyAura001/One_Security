@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { AlertTriangle, Banknote, Clock, Target } from "lucide-react";
+import { AlertTriangle, Banknote, Clock, Plus, Target } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Segmented } from "@/components/ui/segmented";
 import { StatusPill, type PillVariant } from "@/components/ui/status-pill";
@@ -14,7 +15,7 @@ import { formatDateFR, formatFCFA, formatNumberFR } from "@/lib/format";
 import { fetchInvoices } from "@/lib/supabase/data/invoices";
 import { fetchContracts } from "@/lib/supabase/data/contracts";
 import { fetchQuotes } from "@/lib/supabase/data/quotes";
-import { NewInvoiceDialog } from "./new-invoice-dialog";
+import { FactureEditor } from "./facture-editor";
 import { NewQuoteDialog } from "./new-quote-dialog";
 import { NewContractDialog } from "./new-contract-dialog";
 import type {
@@ -57,14 +58,20 @@ const CONTRACT_STATUS: Record<
   expire: { variant: "danger", label: "Expiré" },
 };
 
-const invoiceColumns: ColumnDef<Invoice>[] = [
+const makeInvoiceColumns = (
+  onEdit: (id: string) => void,
+): ColumnDef<Invoice>[] => [
   {
     accessorKey: "ref",
     header: "N° Facture",
     cell: ({ row }) => (
-      <span className="tnum text-foreground text-[12px] font-extrabold">
+      <button
+        type="button"
+        onClick={() => onEdit(row.original.id)}
+        className="tnum text-foreground hover:text-accent text-[12px] font-extrabold transition-colors hover:underline"
+      >
         {row.original.ref}
-      </span>
+      </button>
     ),
   },
   { accessorKey: "client", header: "Client" },
@@ -97,6 +104,21 @@ const invoiceColumns: ColumnDef<Invoice>[] = [
         </StatusPill>
       );
     },
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => (
+      <div className="text-right">
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => onEdit(row.original.id)}
+        >
+          Ouvrir
+        </Button>
+      </div>
+    ),
   },
 ];
 
@@ -197,6 +219,8 @@ const TAB_LABELS: Record<FinanceTab, { cta: string; placeholder: string }> = {
 
 export function FinanceFacturation() {
   const [tab, setTab] = useState<FinanceTab>("factures");
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
 
   // Factures réelles via Supabase (RLS finance).
   const { data } = useQuery({
@@ -227,6 +251,20 @@ export function FinanceFacturation() {
     totalFacture > 0 ? Math.round((encaisse / totalFacture) * 100) : 0;
 
   const meta = TAB_LABELS[tab];
+
+  if (creatingInvoice || editingInvoiceId) {
+    return (
+      <FactureEditor
+        invoiceId={editingInvoiceId ?? undefined}
+        onClose={() => {
+          setCreatingInvoice(false);
+          setEditingInvoiceId(null);
+        }}
+      />
+    );
+  }
+
+  const invoiceColumns = makeInvoiceColumns(setEditingInvoiceId);
 
   return (
     <ScreenContainer>
@@ -279,7 +317,12 @@ export function FinanceFacturation() {
               { value: "contrats", label: "Contrats" },
             ]}
           />
-          {tab === "factures" && <NewInvoiceDialog />}
+          {tab === "factures" && (
+            <Button size="sm" onClick={() => setCreatingInvoice(true)}>
+              <Plus className="size-3.5" strokeWidth={2.4} />
+              Nouvelle facture
+            </Button>
+          )}
           {tab === "devis" && <NewQuoteDialog />}
           {tab === "contrats" && <NewContractDialog />}
         </div>
