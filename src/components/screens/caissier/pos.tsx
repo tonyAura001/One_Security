@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
@@ -8,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityFeed } from "@/components/ui/activity-feed";
 import { getRecentActivity } from "@/lib/api/activity";
-import { PRODUCTS } from "@/lib/api/data";
+import {
+  fetchProduits,
+  fetchDaySummary,
+  createVente,
+} from "@/lib/supabase/data/caisse";
 import { useCartStore, cartTotal, cartCount } from "@/lib/store/cart";
 import { formatFCFA, formatNumberFR } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -25,29 +30,58 @@ function stockLabel(stock: number, threshold: number) {
 }
 
 export function CaissierPos() {
+  const qc = useQueryClient();
   const { lines, add, increment, decrement, remove, clear } = useCartStore();
   const [method, setMethod] = useState<PaymentMethod>("Espèces");
   const [received, setReceived] = useState("");
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["produits"],
+    queryFn: fetchProduits,
+  });
+  const { data: day } = useQuery({
+    queryKey: ["caisse-day"],
+    queryFn: fetchDaySummary,
+  });
 
   const total = cartTotal(lines);
   const count = cartCount(lines);
   const receivedNum = Number(received.replace(/\s/g, "")) || 0;
   const change = receivedNum - total;
 
+  const sale = useMutation({
+    mutationFn: () =>
+      createVente({
+        lines: lines.map((l) => ({ produitId: l.id, quantite: l.qty })),
+        payments: [{ moyen: method, montant: total }],
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["produits"] });
+      qc.invalidateQueries({ queryKey: ["receipts"] });
+      qc.invalidateQueries({ queryKey: ["caisse-day"] });
+      toast.success(
+        "Vente encaissée",
+        method === "Espèces"
+          ? `Rendu monnaie : ${formatFCFA(Math.max(0, change))}`
+          : `Réglé via ${method}`,
+      );
+      clear();
+      setReceived("");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      const denied = /row-level security|policy|refusé|42501/i.test(msg);
+      toast.error(denied ? "Accès refusé pour encaisser." : `Échec : ${msg}`);
+    },
+  });
+
   function checkout() {
-    if (lines.length === 0) return;
+    if (lines.length === 0 || sale.isPending) return;
     if (method === "Espèces" && receivedNum < total) {
       toast.error("Montant reçu insuffisant");
       return;
     }
-    toast.success(
-      "Vente encaissée",
-      method === "Espèces"
-        ? `Rendu monnaie : ${formatFCFA(Math.max(0, change))}`
-        : `Réglé via ${method}`,
-    );
-    clear();
-    setReceived("");
+    sale.mutate();
   }
 
   return (
@@ -59,7 +93,8 @@ export function CaissierPos() {
             Ventes du jour
           </span>
           <div className="text-foreground mt-0.5 text-[18px] font-extrabold">
-            342 000 <span className="text-muted text-[11px]">FCFA</span>
+            {formatNumberFR(day?.total ?? 0)}{" "}
+            <span className="text-muted text-[11px]">FCFA</span>
           </div>
         </div>
         <div className="text-right">
@@ -67,7 +102,7 @@ export function CaissierPos() {
             Transactions
           </span>
           <div className="text-foreground mt-0.5 text-[18px] font-extrabold">
-            56
+            {day?.count ?? 0}
           </div>
         </div>
         <div className="text-right">
@@ -85,8 +120,15 @@ export function CaissierPos() {
           <div className="text-foreground mb-3.5 text-[15px] font-extrabold tracking-[-0.3px]">
             Catalogue équipements
           </div>
+          {products.length === 0 && (
+            <EmptyState
+              icon={ShoppingBag}
+              title="Catalogue vide"
+              description="Ajoutez des produits depuis la Boutique."
+            />
+          )}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
-            {PRODUCTS.map((p) => {
+            {products.map((p) => {
               const s = stockLabel(p.stock, p.threshold);
               const out = p.stock === 0;
               return (
@@ -259,10 +301,11 @@ export function CaissierPos() {
 
               <Button
                 onClick={checkout}
+                disabled={sale.isPending}
                 className="bg-success w-full py-3.5 text-[14px] text-white hover:brightness-110"
                 style={{ boxShadow: "0 6px 16px rgba(16,185,129,.3)" }}
               >
-                Encaisser la vente
+                {sale.isPending ? "Encaissement…" : "Encaisser la vente"}
               </Button>
             </>
           )}

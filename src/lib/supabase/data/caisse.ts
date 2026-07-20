@@ -1,4 +1,9 @@
-/** Caisse/POS via Supabase (RLS : DG/RF/COMPTABLE). */
+/**
+ * Caisse / POS via Supabase. Modèle : `Vente` (en-tête) + `LigneVente`
+ * (N articles) + `Paiement` (1..N règlements). La création passe par le RPC
+ * atomique `create_vente` (en-tête + lignes + paiements + décrément de stock
+ * en une transaction, avec garde de stock). RLS : DG / RF / COMPTABLE.
+ */
 import { createClient } from "@/lib/supabase/client";
 import type { Product, Receipt } from "@/lib/api/types";
 
@@ -63,44 +68,105 @@ export async function adjustStock(
     throw new Error("row-level security: mise à jour refusée (accès écriture).");
 }
 
+// ── Vente (panier multi-lignes + paiements) ──────────────────────────────
+
+export interface VenteLineInput {
+  produitId: string;
+  quantite: number;
+}
+export interface VentePaymentInput {
+  moyen: string;
+  montant: number;
+  reference?: string | null;
+}
+export interface NewVenteInput {
+  lines: VenteLineInput[];
+  payments?: VentePaymentInput[];
+  clientId?: string | null;
+}
+
+// Le client typé ne connaît pas ce RPC custom : appel via cast.
+type RpcCaller = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+/**
+ * Enregistre une vente complète (en-tête + lignes + paiements) et décrémente
+ * le stock, de façon atomique côté serveur. Retourne l'id de la vente.
+ */
+export async function createVente(i: NewVenteInput): Promise<string> {
+  const supabase = createClient();
+  const lines = i.lines
+    .filter((l) => l.produitId && l.quantite > 0)
+    .map((l) => ({ produitId: l.produitId, quantite: Math.max(1, Math.round(l.quantite)) }));
+  if (lines.length === 0) throw new Error("Panier vide.");
+  const payments = (i.payments ?? [])
+    .filter((p) => p.montant > 0)
+    .map((p) => ({ moyen: p.moyen, montant: Math.round(p.montant), reference: p.reference ?? null }));
+  const { data, error } = await (supabase.rpc as unknown as RpcCaller)("create_vente", {
+    _lines: lines,
+    _payments: payments.length ? payments : null,
+    _client: i.clientId ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+// Compat : ancien dialogue « vente rapide » mono-produit → une vente 1 ligne.
 export interface NewSaleInput {
   produitId: string;
   qty: number;
   prix: number;
   moyenPaiement: string;
 }
-
-/** Enregistre une vente (TicketCaisse) et décrémente le stock du produit. */
 export async function createSale(i: NewSaleInput): Promise<void> {
-  const supabase = createClient();
-  const total = Math.round(i.prix) * Math.max(1, Math.round(i.qty));
-  const ref = `RC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-  const { data, error } = await supabase
-    .from("TicketCaisse")
-    .insert({
-      ref,
-      nbArticles: Math.max(1, Math.round(i.qty)),
-      total,
-      moyenPaiement: i.moyenPaiement,
-    } as never)
-    .select("id");
-  if (error) throw error;
-  if (!data || data.length === 0)
-    throw new Error("row-level security: vente refusée (accès écriture).");
-  await adjustStock(i.produitId, -Math.max(1, Math.round(i.qty)));
+  const qty = Math.max(1, Math.round(i.qty));
+  await createVente({
+    lines: [{ produitId: i.produitId, quantite: qty }],
+    payments: [{ moyen: i.moyenPaiement, montant: Math.round(i.prix) * qty }],
+  });
 }
 
-interface DbTicket { id: string; ref: string; dateHeure: string; nbArticles: number; total: number; moyenPaiement: string }
+interface DbVente {
+  id: string;
+  ref: string;
+  dateHeure: string;
+  total: number;
+  LigneVente: { count: number }[] | null;
+  Paiement: { moyen: string }[] | null;
+}
 export async function fetchReceipts(): Promise<Receipt[]> {
   const supabase = createClient();
-  const { data, error } = await supabase.from("TicketCaisse")
-    .select("id,ref,dateHeure,nbArticles,total,moyenPaiement")
+  const { data, error } = await supabase
+    .from("Vente")
+    .select("id,ref,dateHeure,total,LigneVente(count),Paiement(moyen)")
     .order("dateHeure", { ascending: false });
   if (error) throw error;
-  return (data as unknown as DbTicket[]).map((t) => ({
-    id: t.id, ref: t.ref,
-    time: new Date(t.dateHeure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-    items: t.nbArticles, total: t.total,
-    method: t.moyenPaiement as Receipt["method"],
+  return (data as unknown as DbVente[]).map((v) => ({
+    id: v.id,
+    ref: v.ref,
+    time: new Date(v.dateHeure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+    items: v.LigneVente?.[0]?.count ?? 0,
+    total: v.total,
+    method: (v.Paiement?.[0]?.moyen ?? "—") as Receipt["method"],
   }));
+}
+
+export interface DaySummary {
+  total: number;
+  count: number;
+}
+/** Total + nombre de ventes de la journée en cours (fuseau local). */
+export async function fetchDaySummary(): Promise<DaySummary> {
+  const supabase = createClient();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from("Vente")
+    .select("total")
+    .gte("dateHeure", start.toISOString());
+  if (error) throw error;
+  const rows = (data as unknown as { total: number }[]) ?? [];
+  return { total: rows.reduce((s, r) => s + (r.total ?? 0), 0), count: rows.length };
 }
