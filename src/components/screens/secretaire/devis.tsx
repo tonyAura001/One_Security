@@ -1,31 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, FileDown, Send } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CLIENTS } from "@/lib/api/data";
+import { fetchProspectOptions } from "@/lib/supabase/data/options";
+import { createQuote } from "@/lib/supabase/data/quotes";
+import { ONE_SECURITY } from "@/lib/one-security";
 import { formatFCFA } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
-const QUOTE_REF = "DEV-2026-024";
 const TVA_RATE = 0.18;
 const PRESTATION = "Gardiennage 24h/24 — 6 agents + 1 superviseur";
-
-/** Postal addresses for the printable preview (paper document only). */
-const CLIENT_ADDRESS: Record<string, string> = {
-  "Port Autonome de Dakar": "Môle 8, Port de Dakar",
-  "Aéroport AIBD": "Diass, Sénégal",
-  "Ambassade de France": "1 Rue El Hadji A. Assane Ndoye, Plateau",
-  "Sonatel (Siège)": "46 Bd de la République, Plateau",
-  "BICIS Plateau": "2 Av. Léopold Sédar Senghor, Plateau",
-  "Sea Plaza": "Route de la Corniche Ouest, Dakar",
-  "Ambassade des USA": "Route des Almadies, Dakar",
-  "CBAO Indépendance": "Place de l'Indépendance, Dakar",
-  "Résidence Almadies": "Almadies, Dakar",
-  "Hôtel Saly (Mbour)": "Saly Portudal, Mbour",
-};
 
 /** Reusable read-only field cell matching the mockup's boxed inputs. */
 function FieldBox({
@@ -52,22 +40,42 @@ function FieldBox({
 }
 
 export function SecretaireDevis() {
-  const [clientName, setClientName] = useState<string>(
-    "Port Autonome de Dakar",
-  );
+  const qc = useQueryClient();
+  const { data: prospects = [] } = useQuery({
+    queryKey: ["prospect-options"],
+    queryFn: fetchProspectOptions,
+  });
+  const [prospectId, setProspectId] = useState<string>("");
   const [monthlyTariff, setMonthlyTariff] = useState<number>(2_650_000);
   const [months, setMonths] = useState<number>(12);
 
-  const { subtotal, tva, total, address } = useMemo(() => {
+  const clientName =
+    prospects.find((p) => p.id === prospectId)?.label ?? "Prospect à sélectionner";
+
+  const { subtotal, tva, total } = useMemo(() => {
     const sub = monthlyTariff * months;
     const t = Math.round(sub * TVA_RATE);
-    return {
-      subtotal: sub,
-      tva: t,
-      total: sub + t,
-      address: CLIENT_ADDRESS[clientName] ?? "Dakar, Sénégal",
-    };
-  }, [clientName, monthlyTariff, months]);
+    return { subtotal: sub, tva: t, total: sub + t };
+  }, [monthlyTariff, months]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      createQuote({
+        prospectId: prospectId || null,
+        totalHT: subtotal,
+        tauxTVA: 18,
+        statut: "ENVOYE",
+        dateEnvoi: new Date().toISOString().slice(0, 10),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      toast.success("Devis enregistré et envoyé");
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(/row-level|refus/i.test(msg) ? "Accès refusé (DG/RP/Manager)." : `Échec : ${msg}`);
+    },
+  });
 
   const noSuffix = { suffix: false } as const;
 
@@ -77,7 +85,7 @@ export function SecretaireDevis() {
         {/* ---------- Left: quote form ---------- */}
         <Card className="rounded-2xl p-5">
           <div className="text-foreground mb-4 text-[15px] font-extrabold tracking-[-0.3px]">
-            Nouveau devis · {QUOTE_REF}
+            Nouveau devis
           </div>
 
           <div className="flex flex-col gap-3.5">
@@ -89,13 +97,14 @@ export function SecretaireDevis() {
               <div className="relative">
                 <select
                   aria-label="Client du devis"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
+                  value={prospectId}
+                  onChange={(e) => setProspectId(e.target.value)}
                   className="border-border bg-surface2 text-foreground focus-visible:border-accent w-full appearance-none rounded-[10px] border px-[13px] py-[11px] pr-9 text-[12.5px] font-bold outline-none"
                 >
-                  {CLIENTS.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
+                  <option value="">— Sélectionner un prospect —</option>
+                  {prospects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
@@ -161,17 +170,16 @@ export function SecretaireDevis() {
             <div className="mt-1.5 flex gap-2.5">
               <Button
                 className="h-11 flex-1 rounded-[11px] text-[13px] font-extrabold"
-                onClick={() =>
-                  toast.success(`Devis ${QUOTE_REF} enregistré et envoyé`)
-                }
+                disabled={save.isPending}
+                onClick={() => save.mutate()}
               >
                 <Send strokeWidth={1.8} />
-                Enregistrer &amp; envoyer
+                {save.isPending ? "Enregistrement…" : "Enregistrer & envoyer"}
               </Button>
               <Button
                 variant="outline"
                 className="h-11 rounded-[11px] px-[18px] text-[13px] font-bold"
-                onClick={() => toast.info("Aperçu PDF généré")}
+                onClick={() => window.print()}
               >
                 <FileDown strokeWidth={1.8} />
                 Aperçu PDF
@@ -185,16 +193,16 @@ export function SecretaireDevis() {
           <div className="mb-4 flex items-start justify-between border-b-2 border-[#0F1626] pb-3.5">
             <div>
               <div className="text-base font-extrabold text-[#0F1626]">
-                Dakar Sécurité SARL
+                {ONE_SECURITY.name}
               </div>
               <div className="mt-[3px] text-[10px] font-semibold text-[#5B6577]">
-                Dakar, Sénégal · NINEA 005 812 447 2G3
+                {ONE_SECURITY.adresse} · NINEA {ONE_SECURITY.ninea}
               </div>
             </div>
             <div className="text-right">
               <div className="text-lg font-extrabold text-[#2D6BFF]">DEVIS</div>
               <div className="text-[10px] font-semibold text-[#5B6577]">
-                N° {QUOTE_REF}
+                Proforma
               </div>
             </div>
           </div>
@@ -203,7 +211,7 @@ export function SecretaireDevis() {
             Destinataire
           </div>
           <div className="mb-4 text-[12.5px] font-bold text-[#0F1626]">
-            {clientName} — {address}
+            {clientName}
           </div>
 
           <div className="flex border-b border-[#E4E8EF] pb-[7px] text-[9px] font-bold tracking-[0.4px] text-[#5B6577]">

@@ -731,6 +731,9 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "pointage",
   "presences",
   "incidents",
+  // Secrétariat commercial
+  "devisform",
+  "contratedit",
   // RH / Recrutement
   "recrutement",
   "entretiens",
