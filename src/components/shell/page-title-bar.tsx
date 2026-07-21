@@ -19,6 +19,7 @@ const OWN_HEADER: ScreenKey[] = [
   "paie",
   "approbation",
   "satisfaction",
+  "contrattravail",
 ];
 
 /**

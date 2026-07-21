@@ -15,6 +15,8 @@ export interface ContratTravail {
   site: string | null;
   salaire: number;
   dateDebut: string | null;
+  dateFin: string | null;
+  corps: string | null;
   statut: ContractStatus;
 }
 
@@ -22,7 +24,7 @@ export async function fetchContratsTravail(): Promise<ContratTravail[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("ContratTravail")
-    .select("id,ref,employe,poste,type,site,salaire,dateDebut,statut")
+    .select("id,ref,employe,poste,type,site,salaire,dateDebut,dateFin,corps,statut")
     .order("createdAt", { ascending: false });
   if (error) throw error;
   return (data as unknown as ContratTravail[]) ?? [];
@@ -36,8 +38,10 @@ export interface NewContratTravailInput {
   site?: string;
   salaire: number;
   dateDebut?: string | null;
+  dateFin?: string | null;
+  corps?: string | null;
 }
-export async function createContratTravail(i: NewContratTravailInput): Promise<void> {
+export async function createContratTravail(i: NewContratTravailInput): Promise<string> {
   const supabase = createClient();
   const ref = `CTR-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
   const { data, error } = await supabase
@@ -51,12 +55,37 @@ export async function createContratTravail(i: NewContratTravailInput): Promise<v
       site: i.site?.trim() || null,
       salaire: Math.max(0, Math.round(i.salaire)),
       dateDebut: i.dateDebut || null,
+      dateFin: i.dateFin || null,
+      corps: i.corps ?? null,
       statut: "brouillon",
     } as never)
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("row-level security: création refusée (DG/RH/Manager).");
+  return (data as unknown as { id: string }[])[0].id;
+}
+
+/** Met à jour un contrat de travail (métadonnées + corps). RLS DG/RH/Manager. */
+export async function saveContratTravail(id: string, i: NewContratTravailInput): Promise<void> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("ContratTravail")
+    .update({
+      employe: i.employe.trim(),
+      poste: i.poste?.trim() || null,
+      type: i.type,
+      site: i.site?.trim() || null,
+      salaire: Math.max(0, Math.round(i.salaire)),
+      dateDebut: i.dateDebut || null,
+      dateFin: i.dateFin || null,
+      corps: i.corps ?? null,
+      updatedAt: new Date().toISOString(),
+    } as never)
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("row-level security: accès refusé");
 }
 
 export async function updateContratTravailStatut(
