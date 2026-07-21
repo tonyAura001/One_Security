@@ -740,6 +740,7 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "home",
   // CRM
   "crm",
+  "communications",
   "prospects",
   "satisfaction",
   "fournisseurs",
