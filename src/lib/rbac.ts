@@ -199,6 +199,7 @@ const GRP_RH: MenuItem = {
     { key: "onboarding", label: "Onboarding", icon: "check" },
     { key: "prepaie", label: "Préparer la paie", icon: "cash" },
     { key: "paie", label: "Bulletins", icon: "receipt" },
+    { key: "approbation", label: "Approbation masse salariale", icon: "gavel" },
   ],
 };
 
@@ -282,6 +283,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         icon: "users",
         children: [
           { key: "crm", label: "Clients (sites gardés)", icon: "building" },
+          { key: "communications", label: "Communications", icon: "message" },
           { key: "contrats", label: "Contrats", icon: "doc" },
           { key: "satisfaction", label: "Satisfaction & audits", icon: "chart" },
         ],
@@ -318,6 +320,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         icon: "users",
         children: [
           { key: "crm", label: "Clients", icon: "building" },
+          { key: "communications", label: "Communications", icon: "message" },
           { key: "contrats", label: "Contrats", icon: "doc" },
           { key: "prospects", label: "Prospects", icon: "chart" },
         ],
@@ -558,6 +561,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "fournisseurs", label: "Fournisseurs", icon: "box" },
         ],
       },
+      { key: "communications", label: "Communications clients", icon: "message" },
     ],
     homeTitle: "Tableau de bord financier",
     kpis: [
