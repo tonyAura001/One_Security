@@ -93,6 +93,81 @@ export async function createInvoice(input: NewInvoiceInput): Promise<void> {
     throw new Error("row-level security: création refusée (accès écriture).");
 }
 
+/** Détail complet d'une facture (édition). */
+export interface InvoiceDetail {
+  id: string;
+  numero: string;
+  clientId: string;
+  dateEmission: string;
+  dateEcheance: string;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  statut: string;
+}
+
+/** Charge une facture par id pour l'éditeur (RLS lecture finance). */
+export async function fetchInvoiceDetail(id: string): Promise<InvoiceDetail> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Facture")
+    .select(
+      "id,numero,clientId,dateEmission,dateEcheance,montantHT,montantTVA,montantTTC,statut",
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  const r = data as unknown as InvoiceDetail;
+  return {
+    id: r.id,
+    numero: r.numero,
+    clientId: r.clientId,
+    dateEmission: r.dateEmission,
+    dateEcheance: r.dateEcheance,
+    montantHT: Number(r.montantHT) || 0,
+    montantTVA: Number(r.montantTVA) || 0,
+    montantTTC: Number(r.montantTTC) || 0,
+    statut: r.statut,
+  };
+}
+
+export interface UpdateInvoiceInput {
+  clientId: string;
+  montantHT: number;
+  tauxTVA: number;
+  dateEmission: string;
+  dateEcheance: string;
+  statut: string;
+}
+
+/** Met à jour une facture existante (RLS update : DG/RF/COMPTABLE). */
+export async function updateInvoice(
+  id: string,
+  input: UpdateInvoiceInput,
+): Promise<void> {
+  const supabase = createClient();
+  const montantHT = Math.round(input.montantHT);
+  const montantTVA = Math.round((montantHT * input.tauxTVA) / 100);
+  const montantTTC = montantHT + montantTVA;
+  const { data, error } = await supabase
+    .from("Facture")
+    .update({
+      clientId: input.clientId,
+      dateEmission: input.dateEmission,
+      dateEcheance: input.dateEcheance,
+      montantHT,
+      montantTVA,
+      montantTTC,
+      statut: input.statut,
+      updatedAt: new Date().toISOString(),
+    } as never)
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0)
+    throw new Error("row-level security: modification refusée (accès écriture).");
+}
+
 /** Enregistre une relance sur une facture (RLS update : DG/RF/COMPTABLE). */
 export async function sendRelance(id: string, niveau: number): Promise<void> {
   const supabase = createClient();

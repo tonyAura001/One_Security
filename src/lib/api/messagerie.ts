@@ -1,7 +1,16 @@
+export interface MessagePiece {
+  chemin: string;
+  type: string; // mime
+  nom: string;
+  taille: number;
+}
+
 export interface ChatLine {
   from: "me" | "them";
   text: string;
   time: string; // HH:MM
+  createdAt?: string; // ISO (séparateurs de date, ordre)
+  piece?: MessagePiece;
 }
 
 export interface Conversation {

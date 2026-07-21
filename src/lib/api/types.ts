@@ -16,6 +16,7 @@ export interface Client {
   contact: string;
   phone: string;
   sites: number;
+  contracts?: number; // nombre de contrats rattachés (données réelles)
   monthly: number; // FCFA / month
   status: ClientStatus;
   health: number; // 0–100
@@ -88,14 +89,25 @@ export interface SupervisionAgent {
   ping: number; // seconds since last ping
 }
 
+export type ShiftType =
+  | "jour"
+  | "nuit"
+  | "renfort"
+  | "repos"
+  | "rtt"
+  | "conge"
+  | "maladie"
+  | "formation";
+
 export interface Shift {
   id: ID;
   agent: string;
   site: string;
   day: number; // 0=Mon … 6=Sun
+  date?: string; // yyyy-mm-dd (données réelles)
   start: string; // "07:00"
   end: string;
-  type: "jour" | "nuit" | "renfort";
+  type: ShiftType;
 }
 
 export interface Attendance {
@@ -113,6 +125,7 @@ export type PayrollStage = "preparation" | "niveau1" | "niveau2" | "approuve";
 
 export interface Payslip {
   id: ID;
+  agentId?: string;
   agent: string;
   role: string;
   gross: number;
@@ -121,6 +134,13 @@ export interface Payslip {
   ir: number;
   net: number;
   days: number;
+  // Décomposition éditable du brut (données réelles)
+  base?: number;
+  heuresSup?: number;
+  primeAnciennete?: number;
+  autresPrimes?: number;
+  ipresPatronal?: number; // 8.4%
+  cssPatronal?: number; // 7%
 }
 
 /* ---------------- Recruitment ---------------- */
@@ -147,6 +167,8 @@ export interface Interview {
   time: string;
   interviewer: string;
   mode: "présentiel" | "téléphone";
+  statut?: "planifie" | "realise" | "annule";
+  compteRendu?: string | null;
 }
 
 /* ---------------- POS / boutique ---------------- */
@@ -229,6 +251,8 @@ export interface Company {
 }
 
 /* ---------------- Cross-cutting ---------------- */
+export type TaskStatus = "a_faire" | "en_cours" | "en_revision" | "termine";
+
 export interface Task {
   id: ID;
   title: string;
@@ -236,6 +260,9 @@ export interface Task {
   due: string;
   priority: "haute" | "moyenne" | "basse";
   done: boolean;
+  status?: TaskStatus; // étape kanban (données réelles)
+  description?: string; // détail (données réelles)
+  assigneAId?: string | null;
 }
 
 export interface AppNotification {

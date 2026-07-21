@@ -1,7 +1,11 @@
+"use client";
+
 import { A4Page, DocFooter, DocHeader, DocStamp, DocSignatureBlock } from "./doc-chrome";
 import type { WithSignature } from "@/lib/documents/types";
 
-import { ONE_SECURITY, OS_COLORS } from "@/lib/one-security";
+import { OS_COLORS } from "@/lib/one-security";
+import { useCompanyIdentity } from "@/lib/documents/use-identity";
+import { montantEnLettres } from "@/lib/documents/montant-lettres";
 import {
   type DevisData,
   devisMontantLigne,
@@ -11,7 +15,7 @@ import {
 /** Format FCFA : séparateur de milliers par point, sans décimale. */
 function fmt(n: number): string {
   const v = Math.round(Number(n) || 0);
-  return v.toLocaleString("fr-FR").replace(/ | |\s/g, ".");
+  return v.toLocaleString("fr-FR").replace(/ | |\s/g, ".");
 }
 
 export function DevisTemplate({
@@ -23,6 +27,9 @@ export function DevisTemplate({
   numero: string;
   dateLabel: string;
 }) {
+  const os = useCompanyIdentity();
+  const navy = os.couleurPrincipale;
+  const gold = os.couleurAccent;
   const total = devisTotal(data);
 
   return (
@@ -32,7 +39,7 @@ export function DevisTemplate({
       {/* Bandeau titre */}
       <div
         className="flex items-center justify-between rounded-lg px-5 py-3"
-        style={{ background: OS_COLORS.navy }}
+        style={{ background: navy }}
       >
         <span
           className="font-bold text-white"
@@ -50,13 +57,10 @@ export function DevisTemplate({
         className="mt-3 rounded-md px-4 py-2"
         style={{ background: OS_COLORS.grey }}
       >
-        <span style={{ fontSize: 10, color: OS_COLORS.navy }}>
+        <span style={{ fontSize: 10, color: navy }}>
           N° {numero} - Client :{" "}
         </span>
-        <span
-          className="font-bold"
-          style={{ fontSize: 16, color: OS_COLORS.navy }}
-        >
+        <span className="font-bold" style={{ fontSize: 16, color: navy }}>
           {data.client}
         </span>
       </div>
@@ -66,20 +70,17 @@ export function DevisTemplate({
         className="mt-3 pb-1 font-bold"
         style={{
           fontSize: 12,
-          color: OS_COLORS.navy,
-          borderBottom: `2px solid ${OS_COLORS.gold}`,
+          color: navy,
+          borderBottom: `2px solid ${gold}`,
         }}
       >
         Lieu : {data.lieu}
       </div>
 
       {/* Tableau des prestations */}
-      <table
-        className="mt-4 w-full border-collapse"
-        style={{ fontSize: 10.5 }}
-      >
+      <table className="mt-4 w-full border-collapse" style={{ fontSize: 10.5 }}>
         <thead>
-          <tr style={{ background: OS_COLORS.navy }}>
+          <tr style={{ background: navy }}>
             <th
               className="px-3 py-2 text-left font-bold text-white"
               style={{ width: "42%" }}
@@ -118,13 +119,13 @@ export function DevisTemplate({
             <td
               colSpan={4}
               className="px-3 py-2 text-right font-bold text-white"
-              style={{ background: OS_COLORS.navy }}
+              style={{ background: navy }}
             >
               TOTAL TTC
             </td>
             <td
               className="px-3 py-2 text-right font-bold text-white"
-              style={{ background: OS_COLORS.navy }}
+              style={{ background: navy }}
             >
               {fmt(total)}
             </td>
@@ -132,41 +133,34 @@ export function DevisTemplate({
         </tbody>
       </table>
 
-      {/* Montant en lettres */}
-      <div
-        className="mt-4 font-bold"
-        style={{ fontSize: 10.5, color: OS_COLORS.navy }}
-      >
+      {/* Montant en lettres (généré automatiquement) */}
+      <div className="mt-4 font-bold" style={{ fontSize: 10.5, color: navy }}>
         Arrêtée la présente facture à la somme de :{" "}
-        <span
-          className="ml-1 inline-block align-bottom"
-          style={{
-            minWidth: "45%",
-            borderBottom: `1px solid ${OS_COLORS.navy}`,
-          }}
-        />
+        <span style={{ textTransform: "uppercase" }}>
+          {montantEnLettres(total)}
+        </span>
       </div>
 
       {/* NB + totaux */}
       <div className="mt-4 flex items-start justify-between gap-6">
         <div className="max-w-[52%]" style={{ fontSize: 9.5 }}>
-          <span className="font-bold" style={{ color: OS_COLORS.navy }}>
+          <span className="font-bold" style={{ color: navy }}>
             NB :{" "}
           </span>
-          <span style={{ color: "#4b5563" }}>{ONE_SECURITY.nbPaiement}</span>
+          <span style={{ color: "#4b5563" }}>{os.conditionsPaiement}</span>
         </div>
 
         <div className="w-[40%] overflow-hidden rounded-md" style={{ fontSize: 11 }}>
           <div className="flex items-stretch">
             <div
               className="flex-1 px-3 py-2 text-right font-bold text-white"
-              style={{ background: OS_COLORS.navy }}
+              style={{ background: navy }}
             >
               TOTAL TTC
             </div>
             <div
               className="w-[45%] px-3 py-2 text-right font-bold"
-              style={{ color: OS_COLORS.navy, background: OS_COLORS.grey }}
+              style={{ color: navy, background: OS_COLORS.grey }}
             >
               {fmt(total)}
             </div>
@@ -174,13 +168,13 @@ export function DevisTemplate({
           <div className="flex items-stretch">
             <div
               className="flex-1 px-3 py-2 text-right font-bold text-white"
-              style={{ background: OS_COLORS.gold }}
+              style={{ background: gold }}
             >
               NET À PAYER
             </div>
             <div
               className="w-[45%] px-3 py-2 text-right font-bold text-white"
-              style={{ background: OS_COLORS.goldLight }}
+              style={{ background: gold, opacity: 0.85 }}
             >
               {fmt(total)}
             </div>
@@ -190,7 +184,7 @@ export function DevisTemplate({
 
       <DocSignatureBlock signature={(data as WithSignature).signature} />
 
-      <DocStamp label={ONE_SECURITY.comptabilite} />
+      <DocStamp label={os.comptabilite} />
 
       <div className="flex-1" />
       <DocFooter />

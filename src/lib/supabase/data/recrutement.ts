@@ -140,6 +140,44 @@ export async function fetchCandidatures(posteId: string): Promise<Candidature[]>
   });
 }
 
+/** Candidature enrichie du titre du poste — pour le board kanban. */
+export interface CandidatureCard extends Candidature {
+  posteTitre: string;
+}
+
+/** Toutes les candidatures (tous postes) pour le pipeline kanban. */
+export async function fetchPipelineCandidatures(): Promise<CandidatureCard[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Candidature")
+    .select(
+      "id,posteId,statut,datePostulation,messageMotivation,Candidat(id,nom,prenom,email,telephone),Poste(titre)",
+    )
+    .order("datePostulation", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as (DbCandRow & { Poste: { titre: string } | { titre: string }[] | null })[]).map(
+    (r) => {
+      const cand = one(r.Candidat);
+      const poste = one(r.Poste);
+      return {
+        id: r.id,
+        posteId: r.posteId,
+        statut: r.statut as CandidatureStatut,
+        datePostulation: r.datePostulation,
+        messageMotivation: r.messageMotivation,
+        candidat: {
+          id: cand?.id ?? "",
+          nom: cand?.nom ?? "—",
+          prenom: cand?.prenom ?? "",
+          email: cand?.email ?? null,
+          telephone: cand?.telephone ?? null,
+        },
+        posteTitre: poste?.titre ?? "—",
+      };
+    },
+  );
+}
+
 /** Entretiens d'une candidature (avec le recruteur). Filtrés par la RLS. */
 export async function fetchEntretiens(candidatureId: string): Promise<Entretien[]> {
   const supabase = createClient();
@@ -171,6 +209,8 @@ interface DbAgendaRow {
   id: string;
   dateHeure: string;
   type: string;
+  statut: string;
+  compteRendu: string | null;
   User: DbRec | DbRec[] | null;
   Candidature: DbAgendaCand | DbAgendaCand[] | null;
 }
@@ -184,7 +224,7 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
   const { data, error } = await supabase
     .from("Entretien")
     .select(
-      "id,dateHeure,type,User(prenom,nom),Candidature(id,Candidat(prenom,nom),Poste(titre))",
+      "id,dateHeure,type,statut,compteRendu,User(prenom,nom),Candidature(id,Candidat(prenom,nom),Poste(titre))",
     )
     .order("dateHeure", { ascending: true });
   if (error) throw error;
@@ -203,8 +243,23 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
       time: dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
       interviewer: rec ? `${rec.prenom} ${rec.nom}` : "—",
       mode: r.type === "telephonique" ? "téléphone" : "présentiel",
+      statut: (r.statut as EntretienStatut) ?? "planifie",
+      compteRendu: r.compteRendu,
     };
   });
+}
+
+/** Met à jour un entretien (statut réalisé/annulé + compte-rendu). RLS entretien_write. */
+export async function updateEntretien(
+  id: string,
+  patch: { statut?: EntretienStatut; compteRendu?: string },
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("Entretien")
+    .update({ ...patch, updatedAt: new Date().toISOString() } as never)
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export interface RecrutementStats {

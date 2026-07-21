@@ -4,9 +4,21 @@
  * membres. La liste des conversations passe par le RPC `my_conversations`
  * (SECURITY DEFINER) qui calcule le nom d'affichage sans exposer la table User.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import type { Conversation, ChatLine } from "@/lib/api/messagerie";
+import type { Conversation, ChatLine, MessagePiece } from "@/lib/api/messagerie";
 
+export { getSignedUrl } from "@/lib/supabase/data/files";
+
+const BUCKET = "pilotepme-files";
+/** Limites de taille des pièces jointes. */
+export const MAX_IMAGE = 8 * 1024 * 1024; // 8 Mo
+export const MAX_VIDEO = 30 * 1024 * 1024; // 30 Mo (vidéo « pas trop lourde »)
+export const MAX_FILE = 15 * 1024 * 1024; // 15 Mo
+
+function loose(): SupabaseClient {
+  return createClient() as unknown as SupabaseClient;
+}
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
@@ -20,9 +32,13 @@ interface RpcConv {
 }
 interface DbMessage {
   canalId: string;
-  contenu: string;
+  contenu: string | null;
   auteurId: string;
   createdAt: string;
+  pieceChemin: string | null;
+  pieceType: string | null;
+  pieceNom: string | null;
+  pieceTaille: number | null;
 }
 
 // Le client typé ne connaît pas les RPC custom : appel via cast.
@@ -35,7 +51,7 @@ export async function fetchConversations(): Promise<Conversation[]> {
 
   const [convRes, msgRes] = await Promise.all([
     (supabase.rpc as unknown as RpcCaller)("my_conversations"),
-    supabase.from("Message").select("canalId,contenu,auteurId,createdAt"),
+    loose().from("Message").select("canalId,contenu,auteurId,createdAt,pieceChemin,pieceType,pieceNom,pieceTaille"),
   ]);
   if (convRes.error) throw new Error(convRes.error.message);
   if (msgRes.error) throw msgRes.error;
@@ -53,11 +69,18 @@ export async function fetchConversations(): Promise<Conversation[]> {
   return convs.map((c): Conversation => {
     const messages: ChatLine[] = (byCanal.get(c.id) ?? [])
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map((m) => ({
-        from: m.auteurId === meId ? "me" : "them",
-        text: m.contenu,
-        time: new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-      }));
+      .map((m) => {
+        const piece: MessagePiece | undefined = m.pieceChemin
+          ? { chemin: m.pieceChemin, type: m.pieceType ?? "", nom: m.pieceNom ?? "fichier", taille: m.pieceTaille ?? 0 }
+          : undefined;
+        return {
+          from: m.auteurId === meId ? "me" : "them",
+          text: m.contenu ?? "",
+          time: new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+          createdAt: m.createdAt,
+          piece,
+        };
+      });
     const name =
       c.type === "direct" ? (c.partner ?? "Conversation") : (c.nom ?? "Canal");
     const subtitle = c.type === "direct" ? "Message direct" : (c.description ?? "");
@@ -87,12 +110,43 @@ export async function createDirectConversation(otherUserId: string): Promise<str
   return data as string;
 }
 
-export async function sendMessage(canalId: string, text: string): Promise<void> {
-  const supabase = createClient();
+/** Envoie un message texte et/ou avec pièce jointe. */
+export async function sendMessage(
+  canalId: string,
+  text: string,
+  piece?: MessagePiece,
+): Promise<void> {
+  const supabase = loose();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("non authentifié");
-  const { error } = await supabase
-    .from("Message")
-    .insert({ contenu: text, canalId, auteurId: auth.user.id } as never);
+  const { error } = await supabase.from("Message").insert({
+    contenu: text || null,
+    canalId,
+    auteurId: auth.user.id,
+    pieceChemin: piece?.chemin ?? null,
+    pieceType: piece?.type ?? null,
+    pieceNom: piece?.nom ?? null,
+    pieceTaille: piece?.taille ?? null,
+  });
   if (error) throw error;
+}
+
+/** Téléverse une pièce jointe (photo/vidéo/document) dans le bucket, avec limites. */
+export async function uploadMessageAttachment(file: File): Promise<MessagePiece> {
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+  const max = isImage ? MAX_IMAGE : isVideo ? MAX_VIDEO : MAX_FILE;
+  if (file.size > max) {
+    const mo = Math.round((max / (1024 * 1024)) * 10) / 10;
+    throw new Error(`Fichier trop lourd (max ${mo} Mo pour ${isImage ? "une image" : isVideo ? "une vidéo" : "un document"}).`);
+  }
+  const supabase = createClient();
+  const safe = file.name.replace(/[^\w.\-]+/g, "_");
+  const chemin = `messagerie/${crypto.randomUUID()}-${safe}`;
+  const up = await supabase.storage.from(BUCKET).upload(chemin, file, {
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (up.error) throw up.error;
+  return { chemin, type: file.type || "application/octet-stream", nom: file.name, taille: file.size };
 }

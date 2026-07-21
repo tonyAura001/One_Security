@@ -52,6 +52,7 @@ export type ScreenKey =
   | "acces"
   | "prospects"
   | "satisfaction"
+  | "communications"
   | "agents"
   | "approbation"
   | "catalogue"
@@ -167,6 +168,7 @@ const GRP_CRM: MenuItem = {
   children: [
     { key: "crm", label: "Clients (sites gardés)", icon: "building" },
     { key: "acces", label: "Accès clients", icon: "users" },
+    { key: "communications", label: "Communications", icon: "message" },
     { key: "prospects", label: "Prospects", icon: "chart" },
     { key: "contrats", label: "Contrats", icon: "doc" },
     { key: "satisfaction", label: "Satisfaction & audits", icon: "chart" },
@@ -197,6 +199,7 @@ const GRP_RH: MenuItem = {
     { key: "onboarding", label: "Onboarding", icon: "check" },
     { key: "prepaie", label: "Préparer la paie", icon: "cash" },
     { key: "paie", label: "Bulletins", icon: "receipt" },
+    { key: "approbation", label: "Approbation masse salariale", icon: "gavel" },
   ],
 };
 
@@ -242,7 +245,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       GRP_RH,
       GRP_JURIDIQUE,
       { key: "analytics", label: "Analytics", icon: "analytics" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
       {
         label: "Communication",
         icon: "megaphone",
@@ -281,11 +283,11 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         icon: "users",
         children: [
           { key: "crm", label: "Clients (sites gardés)", icon: "building" },
+          { key: "communications", label: "Communications", icon: "message" },
           { key: "contrats", label: "Contrats", icon: "doc" },
           { key: "satisfaction", label: "Satisfaction & audits", icon: "chart" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord opérations",
     kpis: [
@@ -318,12 +320,12 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         icon: "users",
         children: [
           { key: "crm", label: "Clients", icon: "building" },
+          { key: "communications", label: "Communications", icon: "message" },
           { key: "contrats", label: "Contrats", icon: "doc" },
           { key: "prospects", label: "Prospects", icon: "chart" },
         ],
       },
       { key: "analytics", label: "Analytics", icon: "analytics" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord financier",
     kpis: [
@@ -380,7 +382,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "soumission", label: "Soumission", icon: "upload" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord RH",
     kpis: [
@@ -421,7 +422,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       { key: "incidents", label: "Incidents", icon: "alert" },
       { key: "rondes", label: "Rondes", icon: "pin" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord secteur",
     kpis: [
@@ -459,7 +459,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         ],
       },
       { key: "incidents", label: "Incidents", icon: "alert" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord contrôle",
     kpis: [
@@ -520,7 +519,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       { key: "home", label: "Tableau de bord juridique", icon: "grid" },
       GRP_JURIDIQUE,
       { key: "bibliotheque", label: "Bibliothèque réglementaire", icon: "book" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord juridique",
     kpis: [
@@ -563,7 +561,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "fournisseurs", label: "Fournisseurs", icon: "box" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
+      { key: "communications", label: "Communications clients", icon: "message" },
     ],
     homeTitle: "Tableau de bord financier",
     kpis: [
@@ -634,6 +632,7 @@ export const SCREEN_META: Record<
   dashboard: { crumb: "Pilotage", title: "Tableau de bord 360°" },
   finance: { crumb: "Finance", title: "Finance & Facturation" },
   crm: { crumb: "Commercial", title: "CRM Clients" },
+  communications: { crumb: "Commercial", title: "Communications clients" },
   planning: { crumb: "Opérations", title: "Planning & Agents" },
   paie: { crumb: "Ressources humaines", title: "Paie & Bulletins" },
   recrutement: { crumb: "Ressources humaines", title: "Recrutement" },
@@ -721,6 +720,7 @@ const COMMON_MENU: MenuItem[] = [
   { key: "taches", label: "Tâches", icon: "check" },
   { key: "notes", label: "Notes", icon: "doc" },
   { key: "reunions", label: "Réunions", icon: "calendar" },
+  { key: "rapports", label: "Rapports", icon: "chart" },
   { key: "alertes", label: "Alertes", icon: "bell" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
@@ -737,6 +737,7 @@ export const FUNCTIONAL_SCREENS = new Set<ScreenKey>([
   "home",
   // CRM
   "crm",
+  "communications",
   "prospects",
   "satisfaction",
   "fournisseurs",

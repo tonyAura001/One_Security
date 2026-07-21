@@ -9,6 +9,7 @@ export interface DashboardKpis {
   tauxRecouvrement: number;
   masseSalariale: number;
   facturesRetard: number;
+  facturesRetardCount: number;
   agentsService: number;
   contratsExpirant: number;
   ticketsOuverts: number;
@@ -59,6 +60,7 @@ export async function fetchDashboardKpis(): Promise<DashboardKpis> {
     tauxRecouvrement: denom ? Math.round((paye / denom) * 100) : 0,
     masseSalariale: (bul.data ?? []).reduce((s, b) => s + num((b as { salaireNet: unknown }).salaireNet), 0),
     facturesRetard: retardMt,
+    facturesRetardCount: retard.length,
     agentsService: ((ag.data ?? []) as { statut: string }[]).filter((a) => a.statut === "actif").length,
     contratsExpirant: in30,
     ticketsOuverts: ((tik.data ?? []) as { stage: string }[]).filter((t) => t.stage !== "resolu").length,
@@ -120,4 +122,93 @@ export async function fetchProjetsByStatut(): Promise<StatutCount[]> {
   const counts = new Map<string, number>();
   for (const r of rows) counts.set(r.statut, (counts.get(r.statut) ?? 0) + 1);
   return [...counts.entries()].map(([statut, count]) => ({ statut, count }));
+}
+
+// ── Chiffre d'affaires mensuel (6 derniers mois) ──────────────────────────
+
+export interface CaMonthlyPoint {
+  month: string; // libellé court « Juil. »
+  total: number; // CA encaissé (factures payées) du mois
+}
+/**
+ * Chiffre d'affaires encaissé par mois sur les N derniers mois (défaut 6).
+ * Basé sur les factures PAYÉE, agrégées par mois d'émission (RLS finance).
+ */
+export async function fetchCaMonthly(months = 6): Promise<CaMonthlyPoint[]> {
+  const supabase = createClient();
+  const now = new Date();
+  const since = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const { data, error } = await supabase
+    .from("Facture")
+    .select("montantTTC,statut,dateEmission")
+    .gte("dateEmission", since.toISOString().slice(0, 10));
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    montantTTC: number | string;
+    statut: string;
+    dateEmission: string;
+  }[];
+
+  const fmt = new Intl.DateTimeFormat("fr-FR", { month: "short" });
+  const buckets: { key: string; label: string; total: number }[] = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - (months - 1) + i, 1);
+    const label = fmt.format(d).replace(/\.$/, "");
+    buckets.push({
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+      total: 0,
+    });
+  }
+  const byKey = new Map(buckets.map((b) => [b.key, b]));
+  for (const r of rows) {
+    if (r.statut !== "PAYEE") continue;
+    const key = r.dateEmission.slice(0, 7);
+    const b = byKey.get(key);
+    if (b) b.total += num(r.montantTTC);
+  }
+  return buckets.map((b) => ({ month: b.label, total: b.total }));
+}
+
+// ── Répartition des factures par statut ───────────────────────────────────
+
+export interface FactureStatutPoint {
+  statut: string;
+  label: string;
+  count: number;
+  montant: number;
+}
+
+const FACTURE_STATUT_LABELS: Record<string, string> = {
+  PAYEE: "Payées",
+  ENVOYEE: "Envoyées",
+  EMISE: "Émises",
+  EN_RETARD: "En retard",
+  LITIGE: "En litige",
+  ANNULEE: "Annulées",
+};
+
+/** Nombre et montant de factures groupés par statut (RLS finance). */
+export async function fetchFacturesByStatut(): Promise<FactureStatutPoint[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Facture")
+    .select("montantTTC,statut");
+  if (error) throw error;
+  const rows = (data ?? []) as { montantTTC: number | string; statut: string }[];
+  const map = new Map<string, { count: number; montant: number }>();
+  for (const r of rows) {
+    const cur = map.get(r.statut) ?? { count: 0, montant: 0 };
+    cur.count += 1;
+    cur.montant += num(r.montantTTC);
+    map.set(r.statut, cur);
+  }
+  return [...map.entries()]
+    .map(([statut, v]) => ({
+      statut,
+      label: FACTURE_STATUT_LABELS[statut] ?? statut,
+      count: v.count,
+      montant: v.montant,
+    }))
+    .sort((a, b) => b.count - a.count);
 }
