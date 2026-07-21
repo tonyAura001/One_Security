@@ -140,6 +140,44 @@ export async function fetchCandidatures(posteId: string): Promise<Candidature[]>
   });
 }
 
+/** Candidature enrichie du titre du poste — pour le board kanban. */
+export interface CandidatureCard extends Candidature {
+  posteTitre: string;
+}
+
+/** Toutes les candidatures (tous postes) pour le pipeline kanban. */
+export async function fetchPipelineCandidatures(): Promise<CandidatureCard[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Candidature")
+    .select(
+      "id,posteId,statut,datePostulation,messageMotivation,Candidat(id,nom,prenom,email,telephone),Poste(titre)",
+    )
+    .order("datePostulation", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as (DbCandRow & { Poste: { titre: string } | { titre: string }[] | null })[]).map(
+    (r) => {
+      const cand = one(r.Candidat);
+      const poste = one(r.Poste);
+      return {
+        id: r.id,
+        posteId: r.posteId,
+        statut: r.statut as CandidatureStatut,
+        datePostulation: r.datePostulation,
+        messageMotivation: r.messageMotivation,
+        candidat: {
+          id: cand?.id ?? "",
+          nom: cand?.nom ?? "—",
+          prenom: cand?.prenom ?? "",
+          email: cand?.email ?? null,
+          telephone: cand?.telephone ?? null,
+        },
+        posteTitre: poste?.titre ?? "—",
+      };
+    },
+  );
+}
+
 /** Entretiens d'une candidature (avec le recruteur). Filtrés par la RLS. */
 export async function fetchEntretiens(candidatureId: string): Promise<Entretien[]> {
   const supabase = createClient();
