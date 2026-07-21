@@ -6,10 +6,11 @@ import { ArrowLeft, Plus, Printer, Save, Trash2 } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { formatFCFA } from "@/lib/format";
 import { createQuote } from "@/lib/supabase/data/quotes";
 import { createDocument } from "@/lib/supabase/data/documents";
-import { fetchProspectOptions, type Opt } from "@/lib/supabase/data/options";
+import { fetchProspectOptions, fetchClientOptions, type Opt } from "@/lib/supabase/data/options";
 import { useCompanyIdentity } from "@/lib/documents/use-identity";
 import { montantEnLettres } from "@/lib/documents/montant-lettres";
 import { OS_COLORS } from "@/lib/one-security";
@@ -50,9 +51,13 @@ export function DevisEditor({ onClose }: { onClose: () => void }) {
   const grey = OS_COLORS.grey;
 
   const { data: prospects } = useQuery({ queryKey: ["prospect-options"], queryFn: fetchProspectOptions });
+  const { data: clients } = useQuery({ queryKey: ["client-options"], queryFn: fetchClientOptions });
   const prospectOpts: Opt[] = prospects ?? [];
+  const clientOpts: Opt[] = clients ?? [];
 
+  const [cible, setCible] = useState<"prospect" | "client">("prospect");
   const [prospectId, setProspectId] = useState("");
+  const [clientId, setClientId] = useState("");
   const [clientNom, setClientNom] = useState("");
   const [numero, setNumero] = useState(defaultNumero());
   const [dateEmission, setDateEmission] = useState(today());
@@ -60,10 +65,12 @@ export function DevisEditor({ onClose }: { onClose: () => void }) {
   const [lieu, setLieu] = useState("");
   const [lignes, setLignes] = useState<EditorLigne[]>([emptyLigne()]);
 
-  const prospectLabel = prospectOpts.find((o) => o.id === prospectId)?.label ?? "";
-  const clientLabel = clientNom.trim() || prospectLabel;
+  const cibleOpts = cible === "prospect" ? prospectOpts : clientOpts;
+  const cibleId = cible === "prospect" ? prospectId : clientId;
+  const cibleLabel = cibleOpts.find((o) => o.id === cibleId)?.label ?? "";
+  const clientLabel = clientNom.trim() || cibleLabel;
   const total = useMemo(() => lignes.reduce((s, l) => s + ligneMontant(l), 0), [lignes]);
-  const valid = (prospectId !== "" || clientNom.trim() !== "") && total > 0;
+  const valid = (cibleId !== "" || clientNom.trim() !== "") && total > 0;
 
   function setLigne(i: number, patch: Partial<EditorLigne>) {
     setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -71,10 +78,18 @@ export function DevisEditor({ onClose }: { onClose: () => void }) {
   const addLigne = () => setLignes((ls) => [...ls, emptyLigne()]);
   const removeLigne = (i: number) => setLignes((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
 
-  function pickProspect(id: string) {
-    setProspectId(id);
-    const lbl = prospectOpts.find((o) => o.id === id)?.label ?? "";
-    if (lbl && !clientNom.trim()) setClientNom(lbl);
+  /** Change la cible (prospect/client) — réinitialise les deux liens. */
+  function switchCible(next: "prospect" | "client") {
+    setCible(next);
+    setProspectId("");
+    setClientId("");
+  }
+  /** Sélectionne une cible dans la liste courante + auto-remplit le nom. */
+  function pickTarget(id: string) {
+    if (cible === "prospect") setProspectId(id);
+    else setClientId(id);
+    const lbl = cibleOpts.find((o) => o.id === id)?.label ?? "";
+    if (lbl) setClientNom(lbl);
   }
 
   const devisData: DevisData = useMemo(
@@ -95,7 +110,8 @@ export function DevisEditor({ onClose }: { onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: async () => {
       const usedNumero = await createQuote({
-        prospectId: prospectId || null,
+        prospectId: cible === "prospect" ? prospectId || null : null,
+        clientId: cible === "client" ? clientId || null : null,
         totalHT: total,
         tauxTVA: 0,
         statut,
@@ -145,19 +161,34 @@ export function DevisEditor({ onClose }: { onClose: () => void }) {
           <div className="text-muted text-[11.5px] font-semibold">Édition directe sur le document · cliquez et tapez</div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <label className="text-muted flex items-center gap-1.5 text-[11px] font-bold">
-            Prospect
-            <select
-              value={prospectId}
-              onChange={(e) => pickProspect(e.target.value)}
-              className="border-border bg-surface2 text-foreground rounded-[8px] border px-2 py-1.5 text-[12px] font-semibold outline-none"
-            >
-              <option value="">— aucun —</option>
-              {prospectOpts.map((o) => (
-                <option key={o.id} value={o.id}>{o.label}</option>
-              ))}
-            </select>
-          </label>
+          {/* Cible : prospect ou client existant */}
+          <div className="border-border bg-surface2 flex items-center gap-0.5 rounded-[9px] border p-0.5">
+            {(["prospect", "client"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => switchCible(t)}
+                className={cn(
+                  "rounded-[7px] px-2.5 py-1 text-[11.5px] font-bold capitalize transition-colors",
+                  cible === t ? "bg-accent/16 text-accent" : "text-muted hover:text-foreground",
+                )}
+              >
+                {t === "prospect" ? "Prospect" : "Client"}
+              </button>
+            ))}
+          </div>
+          <select
+            value={cibleId}
+            onChange={(e) => pickTarget(e.target.value)}
+            className="border-border bg-surface2 text-foreground max-w-[190px] rounded-[8px] border px-2 py-1.5 text-[12px] font-semibold outline-none"
+          >
+            <option value="">
+              {cible === "prospect" ? "— prospect —" : "— client —"}
+            </option>
+            {cibleOpts.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
           <select
             value={statut}
             onChange={(e) => setStatut(e.target.value)}

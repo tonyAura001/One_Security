@@ -96,7 +96,7 @@ export async function fetchClientDetail(
         .eq("clientId", clientId),
       s
         .from("Devis")
-        .select("id,numero,totalTTC,statut,dateEnvoi,createdAt,Prospect(raisonSociale)")
+        .select("id,numero,totalTTC,statut,dateEnvoi,createdAt,clientId,Prospect(raisonSociale)")
         .order("createdAt", { ascending: false }),
     ]);
 
@@ -151,9 +151,11 @@ export async function fetchClientDetail(
   // Devis : rattachement best-effort par raison sociale du prospect.
   const target = clientName.trim().toLowerCase();
   const devis: ClientDevis[] = (
-    (devisRes.data as Record<string, unknown>[]) ?? []
+    (devisRes.data as unknown as Record<string, unknown>[]) ?? []
   )
     .filter((r) => {
+      // Lien direct au client (nouveau) OU correspondance de nom de prospect.
+      if (r.clientId && String(r.clientId) === clientId) return true;
       const p = r.Prospect as { raisonSociale?: string } | { raisonSociale?: string }[] | null;
       const raison = Array.isArray(p) ? p[0]?.raisonSociale : p?.raisonSociale;
       return raison && raison.trim().toLowerCase() === target;

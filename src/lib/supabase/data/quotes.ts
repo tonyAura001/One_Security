@@ -13,6 +13,14 @@ interface DbDevis {
   createdAt: string;
   statut: string;
   Prospect: { raisonSociale: string } | { raisonSociale: string }[] | null;
+  Client: { raisonSociale: string } | { raisonSociale: string }[] | null;
+}
+
+function raison(
+  r: { raisonSociale: string } | { raisonSociale: string }[] | null,
+): string | null {
+  const v = Array.isArray(r) ? r[0] : r;
+  return v?.raisonSociale ?? null;
 }
 
 /** StatutDevis (DB) → QuoteStatus (UI). */
@@ -30,11 +38,10 @@ function mapStatus(s: string): QuoteStatus {
 }
 
 function mapQuote(r: DbDevis): Quote {
-  const p = Array.isArray(r.Prospect) ? r.Prospect[0] : r.Prospect;
   return {
     id: r.id,
     ref: r.numero,
-    client: p?.raisonSociale ?? "—",
+    client: raison(r.Client) ?? raison(r.Prospect) ?? "—",
     amount: Number(r.totalTTC) || 0,
     created: r.dateEnvoi ?? r.createdAt,
     status: mapStatus(r.statut),
@@ -46,7 +53,9 @@ export async function fetchQuotes(): Promise<Quote[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("Devis")
-    .select("id,numero,totalTTC,dateEnvoi,createdAt,statut,Prospect(raisonSociale)")
+    .select(
+      "id,numero,totalTTC,dateEnvoi,createdAt,statut,Prospect(raisonSociale),Client(raisonSociale)",
+    )
     .order("createdAt", { ascending: false });
   if (error) throw error;
   return (data as unknown as DbDevis[]).map(mapQuote);
@@ -54,6 +63,7 @@ export async function fetchQuotes(): Promise<Quote[]> {
 
 export interface NewQuoteInput {
   prospectId?: string | null;
+  clientId?: string | null; // devis adressé à un client existant
   totalHT: number;
   tauxTVA: number; // %
   statut: string; // enum StatutDevis
@@ -74,6 +84,7 @@ export async function createQuote(i: NewQuoteInput): Promise<string> {
     .insert({
       numero,
       prospectId: i.prospectId || null,
+      clientId: i.clientId || null,
       totalHT,
       totalTTC,
       statut: i.statut,
