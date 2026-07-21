@@ -52,6 +52,7 @@ export type ScreenKey =
   | "acces"
   | "prospects"
   | "satisfaction"
+  | "communications"
   | "agents"
   | "approbation"
   | "catalogue"
@@ -167,6 +168,7 @@ const GRP_CRM: MenuItem = {
   children: [
     { key: "crm", label: "Clients (sites gardés)", icon: "building" },
     { key: "acces", label: "Accès clients", icon: "users" },
+    { key: "communications", label: "Communications", icon: "message" },
     { key: "prospects", label: "Prospects", icon: "chart" },
     { key: "contrats", label: "Contrats", icon: "doc" },
     { key: "satisfaction", label: "Satisfaction & audits", icon: "chart" },
@@ -634,6 +636,7 @@ export const SCREEN_META: Record<
   dashboard: { crumb: "Pilotage", title: "Tableau de bord 360°" },
   finance: { crumb: "Finance", title: "Finance & Facturation" },
   crm: { crumb: "Commercial", title: "CRM Clients" },
+  communications: { crumb: "Commercial", title: "Communications clients" },
   planning: { crumb: "Opérations", title: "Planning & Agents" },
   paie: { crumb: "Ressources humaines", title: "Paie & Bulletins" },
   recrutement: { crumb: "Ressources humaines", title: "Recrutement" },

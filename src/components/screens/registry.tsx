@@ -11,6 +11,7 @@ import { RoleHome } from "./role-home";
 // Finance / CRM / Ops
 import { FinanceFacturation } from "./finance/facturation";
 import { CrmClients } from "./crm/crm";
+import { CommunicationsScreen } from "./crm/communications";
 import { OpsPlanning } from "./ops/planning";
 import { OpsPresences } from "./ops/presences";
 import { OpsPointage } from "./ops/pointage";
@@ -109,6 +110,7 @@ const SCREENS: Partial<Record<ScreenKey, ComponentType>> = {
   home: RoleHome,
   finance: FinanceFacturation,
   crm: CrmClients,
+  communications: CommunicationsScreen,
   planning: OpsPlanning,
   presences: OpsPresences,
   pointage: OpsPointage,
