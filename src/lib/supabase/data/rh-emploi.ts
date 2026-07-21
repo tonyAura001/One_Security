@@ -124,6 +124,38 @@ interface DbOnboarding {
   etapes: OnboardingEtape[];
 }
 
+export interface OnboardingRow {
+  candidatureId: string;
+  employe: string;
+  etapes: OnboardingEtape[];
+  done: number;
+  total: number;
+  pct: number;
+}
+
+/** Tous les onboardings en cours (une ligne par candidature). RLS DG/RH/Manager. */
+export async function fetchOnboardings(): Promise<OnboardingRow[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("Onboarding")
+    .select("candidatureId,employe,etapes")
+    .order("updatedAt", { ascending: false });
+  if (error) throw error;
+  return ((data as unknown as DbOnboarding[]) ?? []).map((r) => {
+    const etapes = r.etapes ?? [];
+    const done = etapes.filter((e) => e.fait).length;
+    const total = etapes.length || 1;
+    return {
+      candidatureId: r.candidatureId,
+      employe: r.employe ?? "—",
+      etapes,
+      done,
+      total: etapes.length,
+      pct: Math.round((done / total) * 100),
+    };
+  });
+}
+
 export async function fetchOnboarding(
   candidatureId: string,
 ): Promise<OnboardingEtape[] | null> {
