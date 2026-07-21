@@ -89,14 +89,25 @@ export interface SupervisionAgent {
   ping: number; // seconds since last ping
 }
 
+export type ShiftType =
+  | "jour"
+  | "nuit"
+  | "renfort"
+  | "repos"
+  | "rtt"
+  | "conge"
+  | "maladie"
+  | "formation";
+
 export interface Shift {
   id: ID;
   agent: string;
   site: string;
   day: number; // 0=Mon … 6=Sun
+  date?: string; // yyyy-mm-dd (données réelles)
   start: string; // "07:00"
   end: string;
-  type: "jour" | "nuit" | "renfort";
+  type: ShiftType;
 }
 
 export interface Attendance {

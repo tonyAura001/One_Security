@@ -4,7 +4,7 @@
  * de contrôle). RLS ops. Vacation → type UI `Shift`.
  */
 import { createClient } from "@/lib/supabase/client";
-import type { Shift } from "@/lib/api/types";
+import type { Shift, ShiftType } from "@/lib/api/types";
 
 interface Named {
   nom: string;
@@ -46,50 +46,43 @@ export async function fetchShifts(): Promise<Shift[]> {
       agent: u ? `${u.prenom} ${u.nom ?? ""}`.trim() : "—",
       site: s?.nom ?? "—",
       day: (jsDay + 6) % 7,
+      date: r.debut ? r.debut.slice(0, 10) : undefined,
       start,
       end: r.fin ? hhmm(r.fin) : "",
-      type: (r.type as Shift["type"]) ?? "jour",
+      type: (r.type as ShiftType) ?? "jour",
     };
   });
 }
 
-export type ShiftType = "jour" | "nuit" | "renfort";
-
 export interface NewShiftInput {
   agentId: string;
-  day: number; // 0 = Lundi … 4 = Vendredi
+  date: string; // yyyy-mm-dd (jour ciblé de la semaine affichée)
   type: ShiftType;
   siteId?: string | null;
 }
 
-/** Horaires par type de vacation ([heure début, heure fin]). */
+/** Horaires par type de vacation ([heure début, heure fin]). Absences = journée. */
 const SHIFT_HOURS: Record<ShiftType, [number, number]> = {
   jour: [6, 18],
   renfort: [14, 22],
   nuit: [20, 6],
+  repos: [0, 0],
+  rtt: [0, 0],
+  conge: [0, 0],
+  maladie: [0, 0],
+  formation: [8, 17],
 };
 
-/** Date du jour ouvré `day` (0=Lun) dans la semaine courante. */
-function dateForWeekday(day: number): Date {
-  const now = new Date();
-  const sinceMonday = (now.getDay() + 6) % 7;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - sinceMonday);
-  const d = new Date(monday);
-  d.setDate(monday.getDate() + day);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** Affecte une vacation à un agent (RLS vacation_insert : DG/RP/MANAGER/CONTROLEUR). */
+/** Affecte une vacation à un agent sur une date. RLS : DG/RP/MANAGER/CONTROLEUR. */
 export async function createShift(i: NewShiftInput): Promise<void> {
   const supabase = createClient();
   const [sh, eh] = SHIFT_HOURS[i.type];
-  const base = dateForWeekday(i.day);
-  const debut = new Date(base);
+  const debut = new Date(`${i.date}T00:00:00`);
   debut.setHours(sh, 0, 0, 0);
-  const fin = new Date(base);
-  fin.setHours(eh, 0, 0, 0);
+  const fin = new Date(`${i.date}T00:00:00`);
+  // Journée complète pour les absences (00:00 → 23:59), sinon horaires du poste.
+  if (sh === 0 && eh === 0) fin.setHours(23, 59, 0, 0);
+  else fin.setHours(eh, 0, 0, 0);
   if (i.type === "nuit") fin.setDate(fin.getDate() + 1); // fin le lendemain matin
   const { data, error } = await supabase
     .from("Vacation")
@@ -104,4 +97,11 @@ export async function createShift(i: NewShiftInput): Promise<void> {
   if (error) throw error;
   if (!data || data.length === 0)
     throw new Error("row-level security: affectation refusée (accès écriture).");
+}
+
+/** Retire une vacation. RLS vacation_delete : DG/RP/MANAGER. */
+export async function deleteShift(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("Vacation").delete().eq("id", id);
+  if (error) throw error;
 }
