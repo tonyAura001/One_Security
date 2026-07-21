@@ -244,7 +244,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       GRP_RH,
       GRP_JURIDIQUE,
       { key: "analytics", label: "Analytics", icon: "analytics" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
       {
         label: "Communication",
         icon: "megaphone",
@@ -287,7 +286,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "satisfaction", label: "Satisfaction & audits", icon: "chart" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord opérations",
     kpis: [
@@ -325,7 +323,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         ],
       },
       { key: "analytics", label: "Analytics", icon: "analytics" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord financier",
     kpis: [
@@ -382,7 +379,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "soumission", label: "Soumission", icon: "upload" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord RH",
     kpis: [
@@ -423,7 +419,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       { key: "incidents", label: "Incidents", icon: "alert" },
       { key: "rondes", label: "Rondes", icon: "pin" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord secteur",
     kpis: [
@@ -461,7 +456,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         ],
       },
       { key: "incidents", label: "Incidents", icon: "alert" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord contrôle",
     kpis: [
@@ -522,7 +516,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       { key: "home", label: "Tableau de bord juridique", icon: "grid" },
       GRP_JURIDIQUE,
       { key: "bibliotheque", label: "Bibliothèque réglementaire", icon: "book" },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord juridique",
     kpis: [
@@ -565,7 +558,6 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { key: "fournisseurs", label: "Fournisseurs", icon: "box" },
         ],
       },
-      { key: "rapports", label: "Rapports", icon: "chart" },
     ],
     homeTitle: "Tableau de bord financier",
     kpis: [
@@ -724,6 +716,7 @@ const COMMON_MENU: MenuItem[] = [
   { key: "taches", label: "Tâches", icon: "check" },
   { key: "notes", label: "Notes", icon: "doc" },
   { key: "reunions", label: "Réunions", icon: "calendar" },
+  { key: "rapports", label: "Rapports", icon: "chart" },
   { key: "alertes", label: "Alertes", icon: "bell" },
   { key: "messagerie", label: "Messagerie", icon: "message" },
   // Notifications & Paramètres restent dans le pied de sidebar (footer du kit).
