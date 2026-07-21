@@ -209,6 +209,8 @@ interface DbAgendaRow {
   id: string;
   dateHeure: string;
   type: string;
+  statut: string;
+  compteRendu: string | null;
   User: DbRec | DbRec[] | null;
   Candidature: DbAgendaCand | DbAgendaCand[] | null;
 }
@@ -222,7 +224,7 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
   const { data, error } = await supabase
     .from("Entretien")
     .select(
-      "id,dateHeure,type,User(prenom,nom),Candidature(id,Candidat(prenom,nom),Poste(titre))",
+      "id,dateHeure,type,statut,compteRendu,User(prenom,nom),Candidature(id,Candidat(prenom,nom),Poste(titre))",
     )
     .order("dateHeure", { ascending: true });
   if (error) throw error;
@@ -241,8 +243,23 @@ export async function fetchAgenda(): Promise<import("@/lib/api/types").Interview
       time: dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
       interviewer: rec ? `${rec.prenom} ${rec.nom}` : "—",
       mode: r.type === "telephonique" ? "téléphone" : "présentiel",
+      statut: (r.statut as EntretienStatut) ?? "planifie",
+      compteRendu: r.compteRendu,
     };
   });
+}
+
+/** Met à jour un entretien (statut réalisé/annulé + compte-rendu). RLS entretien_write. */
+export async function updateEntretien(
+  id: string,
+  patch: { statut?: EntretienStatut; compteRendu?: string },
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("Entretien")
+    .update({ ...patch, updatedAt: new Date().toISOString() } as never)
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export interface RecrutementStats {

@@ -167,6 +167,8 @@ export interface Interview {
   time: string;
   interviewer: string;
   mode: "présentiel" | "téléphone";
+  statut?: "planifie" | "realise" | "annule";
+  compteRendu?: string | null;
 }
 
 /* ---------------- POS / boutique ---------------- */
