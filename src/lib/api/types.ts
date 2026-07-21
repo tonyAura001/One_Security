@@ -230,6 +230,8 @@ export interface Company {
 }
 
 /* ---------------- Cross-cutting ---------------- */
+export type TaskStatus = "a_faire" | "en_cours" | "en_revision" | "termine";
+
 export interface Task {
   id: ID;
   title: string;
@@ -237,6 +239,7 @@ export interface Task {
   due: string;
   priority: "haute" | "moyenne" | "basse";
   done: boolean;
+  status?: TaskStatus; // étape kanban (données réelles)
 }
 
 export interface AppNotification {
