@@ -125,6 +125,7 @@ export type PayrollStage = "preparation" | "niveau1" | "niveau2" | "approuve";
 
 export interface Payslip {
   id: ID;
+  agentId?: string;
   agent: string;
   role: string;
   gross: number;
@@ -133,6 +134,13 @@ export interface Payslip {
   ir: number;
   net: number;
   days: number;
+  // Décomposition éditable du brut (données réelles)
+  base?: number;
+  heuresSup?: number;
+  primeAnciennete?: number;
+  autresPrimes?: number;
+  ipresPatronal?: number; // 8.4%
+  cssPatronal?: number; // 7%
 }
 
 /* ---------------- Recruitment ---------------- */
