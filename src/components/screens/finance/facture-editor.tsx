@@ -2,63 +2,42 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Loader2,
-  Plus,
-  Printer,
-  Save,
-  Trash2,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Printer, Save, Trash2 } from "lucide-react";
 import { ScreenContainer } from "@/components/screens/screen-container";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatusPill } from "@/components/ui/status-pill";
 import { toast } from "@/lib/toast";
-import { formatDateFR, formatFCFA } from "@/lib/format";
+import { formatFCFA } from "@/lib/format";
 import {
   createInvoice,
   fetchInvoiceDetail,
   updateInvoice,
   type InvoiceDetail,
 } from "@/lib/supabase/data/invoices";
-import {
-  createDocument,
-  fetchFactureProforma,
-} from "@/lib/supabase/data/documents";
+import { createDocument, fetchFactureProforma } from "@/lib/supabase/data/documents";
 import { fetchClientOptions, type Opt } from "@/lib/supabase/data/options";
-import { FactureTemplate } from "@/components/documents/facture-template";
-import { ONE_SECURITY } from "@/lib/one-security";
-import type {
-  DocumentData,
-  FactureData,
-  FactureLigne,
-} from "@/lib/documents/types";
+import { useCompanyIdentity } from "@/lib/documents/use-identity";
+import { montantEnLettres } from "@/lib/documents/montant-lettres";
+import { OS_COLORS } from "@/lib/one-security";
+import { DocHeader, DocFooter, DocStamp, DocSignatureBlock } from "@/components/documents/doc-chrome";
+import { EditField, EditFieldOnDark, EditArea } from "@/components/documents/doc-edit";
+import type { DocumentData, FactureData, FactureLigne } from "@/lib/documents/types";
 
-const field =
-  "w-full rounded-[9px] border border-border bg-surface2 px-3 py-2 text-[13px] font-semibold text-foreground outline-none focus:border-accent/50";
-const label =
-  "text-muted mb-1 block text-[10.5px] font-bold tracking-[0.3px] uppercase";
-
-const num = (v: string | number): number => Number(v) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
 const inDays = (n: number) =>
   new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 const defaultNumero = () =>
   `FAC-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+const fmt = (n: number) =>
+  Math.round(Number(n) || 0).toLocaleString("fr-FR").replace(/\s/g, ".");
 
-/**
- * Ligne de facturation (métier sécurité). Le montant est CALCULÉ :
- * postes × agents/poste × nombre de jours × prix unitaire journalier.
- */
+/** Ligne de facturation. Le montant est saisi directement sur le document. */
 interface EditorLigne {
   detail: string;
   nbrePostes: string;
   nbreAPS: string;
   dureeJr: string;
   dureeJrs: string;
-  prixUnitaire: number;
+  montant: number;
 }
 
 function emptyLigne(): EditorLigne {
@@ -68,34 +47,22 @@ function emptyLigne(): EditorLigne {
     nbreAPS: "1",
     dureeJr: "12H/24H",
     dureeJrs: "30",
-    prixUnitaire: 0,
+    montant: 0,
   };
 }
 
-/** Montant HT d'une ligne = postes × agents × jours × prix unitaire. */
-function ligneMontant(l: EditorLigne): number {
-  const postes = num(l.nbrePostes) || 1;
-  const agents = num(l.nbreAPS) || 1;
-  const jours = num(l.dureeJrs) || 1;
-  return Math.round(postes * agents * jours * (Number(l.prixUnitaire) || 0));
-}
-
-/** Reconstruit une ligne d'éditeur depuis une ligne de proforma archivée. */
 function fromFactureLigne(l: FactureLigne): EditorLigne {
-  const postes = num(l.nbrePostes) || 1;
-  const agents = num(l.nbreAPS) || 1;
-  const jours = num(l.dureeJrs) || 1;
   return {
     detail: l.detail ?? "",
     nbrePostes: l.nbrePostes || "1",
     nbreAPS: l.nbreAPS || "1",
     dureeJr: l.dureeJr || "",
     dureeJrs: l.dureeJrs || "1",
-    prixUnitaire: Math.round((Number(l.montant) || 0) / (postes * agents * jours)),
+    montant: Number(l.montant) || 0,
   };
 }
 
-const STATUTS: { v: string; l: string }[] = [
+const STATUTS = [
   { v: "EMISE", l: "Émise" },
   { v: "ENVOYEE", l: "Envoyée" },
   { v: "PAYEE", l: "Payée" },
@@ -114,7 +81,6 @@ interface EditorInitial {
   notes: string;
 }
 
-/** Valeurs par défaut pour une nouvelle facture. */
 function createInitial(): EditorInitial {
   return {
     clientId: "",
@@ -125,16 +91,12 @@ function createInitial(): EditorInitial {
     tauxTVA: 18,
     statut: "EMISE",
     lignes: [emptyLigne()],
-    options: [...ONE_SECURITY.optionsFacturation],
+    options: [],
     notes: "",
   };
 }
 
-/** Valeurs initiales dérivées d'une facture existante (+ proforma archivé). */
-function editInitial(
-  detail: InvoiceDetail,
-  proforma: DocumentData | null,
-): EditorInitial {
+function editInitial(detail: InvoiceDetail, proforma: DocumentData | null): EditorInitial {
   const f = proforma as (FactureData & { notesInternes?: string }) | null;
   const hasLines = !!f && Array.isArray(f.lignes) && f.lignes.length > 0;
   return {
@@ -144,44 +106,18 @@ function editInitial(
     dateEmission: detail.dateEmission.slice(0, 10),
     dateEcheance: detail.dateEcheance.slice(0, 10),
     tauxTVA:
-      detail.montantHT > 0
-        ? Math.round((detail.montantTVA / detail.montantHT) * 100)
-        : 18,
+      detail.montantHT > 0 ? Math.round((detail.montantTVA / detail.montantHT) * 100) : 18,
     statut: detail.statut,
     lignes: hasLines
       ? f!.lignes.map(fromFactureLigne)
-      : [
-          {
-            detail: "Prestation de sécurité",
-            nbrePostes: "1",
-            nbreAPS: "1",
-            dureeJr: "—",
-            dureeJrs: "1",
-            prixUnitaire: detail.montantHT,
-          },
-        ],
-    options:
-      hasLines && Array.isArray(f!.options)
-        ? f!.options
-        : [...ONE_SECURITY.optionsFacturation],
+      : [{ detail: "Prestation de sécurité", nbrePostes: "1", nbreAPS: "1", dureeJr: "—", dureeJrs: "1", montant: detail.montantHT }],
+    options: hasLines && Array.isArray(f!.options) ? f!.options : [],
     notes: hasLines && f!.notesInternes ? f!.notesInternes : "",
   };
 }
 
-/**
- * Éditeur de facture pleine page. Charge d'abord la facture à éditer (le cas
- * échéant), puis monte l'éditeur avec l'état initial correspondant.
- */
-export function FactureEditor({
-  onClose,
-  invoiceId,
-}: {
-  onClose: () => void;
-  invoiceId?: string;
-}) {
+export function FactureEditor({ onClose, invoiceId }: { onClose: () => void; invoiceId?: string }) {
   const isEdit = !!invoiceId;
-
-  // Édition : charge la facture + son proforma archivé (best-effort).
   const editQ = useQuery({
     queryKey: ["invoice-edit", invoiceId],
     enabled: isEdit,
@@ -191,14 +127,8 @@ export function FactureEditor({
       return { detail, proforma };
     },
   });
-
   const initial = useMemo<EditorInitial | null>(
-    () =>
-      isEdit
-        ? editQ.data
-          ? editInitial(editQ.data.detail, editQ.data.proforma)
-          : null
-        : createInitial(),
+    () => (isEdit ? (editQ.data ? editInitial(editQ.data.detail, editQ.data.proforma) : null) : createInitial()),
     [isEdit, editQ.data],
   );
 
@@ -235,128 +165,95 @@ function FactureEditorInner({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const os = useCompanyIdentity();
+  const navy = os.couleurPrincipale;
+  const gold = os.couleurAccent;
+  const grey = OS_COLORS.grey;
 
-  const { data: clients } = useQuery({
-    queryKey: ["client-options"],
-    queryFn: fetchClientOptions,
-  });
+  const { data: clients } = useQuery({ queryKey: ["client-options"], queryFn: fetchClientOptions });
   const clientOpts: Opt[] = clients ?? [];
 
   const [clientId, setClientId] = useState(initial.clientId);
   const [numero, setNumero] = useState(initial.numero);
-  const [objet, setObjet] = useState(initial.objet);
   const [dateEmission, setDateEmission] = useState(initial.dateEmission);
   const [dateEcheance, setDateEcheance] = useState(initial.dateEcheance);
   const [tauxTVA, setTauxTVA] = useState(initial.tauxTVA);
   const [statut, setStatut] = useState(initial.statut);
   const [lignes, setLignes] = useState<EditorLigne[]>(initial.lignes);
   const [options, setOptions] = useState<string[]>(initial.options);
-  const [notes, setNotes] = useState(initial.notes);
+  const notes = initial.notes;
 
-  const clientLabel =
-    clientOpts.find((o) => o.id === clientId)?.label ?? "";
-
-  // Totaux calculés en direct.
-  const ht = useMemo(
-    () => lignes.reduce((s, l) => s + ligneMontant(l), 0),
-    [lignes],
-  );
+  const clientLabel = clientOpts.find((o) => o.id === clientId)?.label ?? "";
+  const ht = useMemo(() => lignes.reduce((s, l) => s + (Number(l.montant) || 0), 0), [lignes]);
   const tva = Math.round((ht * tauxTVA) / 100);
   const ttc = ht + tva;
-
-  // Données mappées vers le gabarit A4 (charte ONE SECURITY).
-  const factureData: FactureData = useMemo(() => {
-    const templateLignes: FactureLigne[] = lignes.map((l) => ({
-      detail: l.detail,
-      nbrePostes: l.nbrePostes,
-      nbreAPS: l.nbreAPS,
-      dureeJr: l.dureeJr,
-      dureeJrs: l.dureeJrs,
-      montant: ligneMontant(l),
-    }));
-    return {
-      client: clientLabel || "—",
-      date: dateEmission,
-      lignes: templateLignes,
-      tauxTVA,
-      options: options.filter((o) => o.trim() !== ""),
-    };
-  }, [lignes, clientLabel, dateEmission, tauxTVA, options]);
-
-  const dateLabel = formatDateFR(dateEmission, "dd/MM/yyyy");
   const valid = clientId !== "" && ht > 0;
 
   function setLigne(i: number, patch: Partial<EditorLigne>) {
     setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   }
-  function addLigne() {
-    setLignes((ls) => [...ls, emptyLigne()]);
-  }
-  function removeLigne(i: number) {
-    setLignes((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
-  }
+  const addLigne = () => setLignes((ls) => [...ls, emptyLigne()]);
+  const removeLigne = (i: number) => setLignes((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
+
+  const factureData: FactureData = useMemo(
+    () => ({
+      client: clientLabel || "—",
+      date: dateEmission,
+      lignes: lignes.map((l) => ({
+        detail: l.detail,
+        nbrePostes: l.nbrePostes,
+        nbreAPS: l.nbreAPS,
+        dureeJr: l.dureeJr,
+        dureeJrs: l.dureeJrs,
+        montant: Number(l.montant) || 0,
+      })),
+      tauxTVA,
+      options: options.filter((o) => o.trim() !== ""),
+    }),
+    [clientLabel, dateEmission, lignes, tauxTVA, options],
+  );
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (isEdit) {
-        await updateInvoice(invoiceId!, {
-          clientId,
-          montantHT: ht,
-          tauxTVA,
-          dateEmission,
-          dateEcheance,
-          statut,
-        });
+        await updateInvoice(invoiceId!, { clientId, montantHT: ht, tauxTVA, dateEmission, dateEcheance, statut });
         return;
       }
-      await createInvoice({
-        clientId,
-        montantHT: ht,
-        tauxTVA,
-        dateEmission,
-        dateEcheance,
-        statut,
-      });
-      // Archivage best-effort du proforma détaillé (n'échoue pas la création).
+      await createInvoice({ clientId, montantHT: ht, tauxTVA, dateEmission, dateEcheance, statut });
       try {
         await createDocument({
           type: "facture_proforma",
           titre: `Facture ${numero} — ${clientLabel || "client"}`,
           numero,
           clientId,
-          donnees: {
-            ...factureData,
-            ...(notes.trim() ? { notesInternes: notes.trim() } : {}),
-          },
+          donnees: { ...factureData, ...(notes.trim() ? { notesInternes: notes.trim() } : {}) },
         });
       } catch {
-        /* le document détaillé est optionnel */
+        /* proforma détaillé optionnel */
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["documents"] });
       qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
-      toast.success(
-        isEdit ? "Facture modifiée" : "Facture créée",
-        `${numero} · ${formatFCFA(ttc)}`,
-      );
+      toast.success(isEdit ? "Facture modifiée" : "Facture créée", `${numero} · ${formatFCFA(ttc)}`);
       onClose();
     },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
-      const denied = /row-level security|policy|permission/i.test(msg);
       toast.error(
-        denied
+        /row-level security|policy|permission/i.test(msg)
           ? "Accès refusé : seuls DG, RF et Comptable peuvent gérer une facture."
           : `Échec : ${msg}`,
       );
     },
   });
 
+  const th = "px-2 py-2 text-center font-bold text-white";
+
   return (
     <ScreenContainer>
-      {/* Barre d'outils (non imprimée) */}
+      {/* Barre d'action (non imprimée) */}
       <div className="doc-toolbar mb-4 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={onClose}>
           <ArrowLeft className="size-4" /> Retour
@@ -366,341 +263,204 @@ function FactureEditorInner({
             {isEdit ? "Modifier la facture" : "Nouvelle facture"}
           </div>
           <div className="text-muted text-[11.5px] font-semibold">
-            Charte ONE SECURITY · aperçu en direct
+            Édition directe sur le document · cliquez et tapez
           </div>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <label className="text-muted flex items-center gap-1.5 text-[11px] font-bold">
+            Échéance
+            <input
+              type="date"
+              value={dateEcheance}
+              onChange={(e) => setDateEcheance(e.target.value)}
+              className="border-border bg-surface2 text-foreground rounded-[8px] border px-2 py-1 text-[12px] font-semibold outline-none"
+            />
+          </label>
+          <select
+            value={statut}
+            onChange={(e) => setStatut(e.target.value)}
+            className="border-border bg-surface2 text-foreground rounded-[8px] border px-2 py-1.5 text-[12px] font-semibold outline-none"
+          >
+            {STATUTS.map((s) => (
+              <option key={s.v} value={s.v}>{s.l}</option>
+            ))}
+          </select>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Exporter PDF
           </Button>
-          <Button
-            size="sm"
-            onClick={() => valid && mutation.mutate()}
-            disabled={!valid || mutation.isPending}
-          >
+          <Button size="sm" onClick={() => valid && mutation.mutate()} disabled={!valid || mutation.isPending}>
             <Save className="size-4" />
-            {mutation.isPending
-              ? "Enregistrement…"
-              : isEdit
-                ? "Enregistrer"
-                : "Créer la facture"}
+            {mutation.isPending ? "Enregistrement…" : isEdit ? "Enregistrer" : "Créer la facture"}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[400px_1fr]">
-        {/* ── Colonne d'édition (non imprimée) ── */}
-        <div className="doc-toolbar flex flex-col gap-4">
-          {/* Informations */}
-          <Card className="p-4">
-            <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.5px] uppercase">
-              Informations
-            </div>
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className={label}>Client *</label>
-                <select
-                  className={field}
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                >
-                  <option value="" disabled>
-                    — Sélectionner un client —
-                  </option>
-                  {clientOpts.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={label}>Objet / désignation</label>
-                <input
-                  className={field}
-                  value={objet}
-                  onChange={(e) => setObjet(e.target.value)}
-                  placeholder="Ex : Prestation sécurité — Janvier 2026"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={label}>Numéro</label>
-                  <input
-                    className={field}
-                    value={numero}
-                    onChange={(e) => setNumero(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className={label}>TVA (%)</label>
-                  <select
-                    className={field}
-                    value={tauxTVA}
-                    onChange={(e) => setTauxTVA(Number(e.target.value))}
-                  >
-                    <option value={18}>18 % (standard Sénégal)</option>
-                    <option value={0}>0 % (exonéré)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={label}>Date d&apos;émission</label>
-                  <input
-                    type="date"
-                    className={field}
-                    value={dateEmission}
-                    onChange={(e) => setDateEmission(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className={label}>Date d&apos;échéance *</label>
-                  <input
-                    type="date"
-                    className={field}
-                    value={dateEcheance}
-                    onChange={(e) => setDateEcheance(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={label}>Statut</label>
-                <select
-                  className={field}
-                  value={statut}
-                  onChange={(e) => setStatut(e.target.value)}
-                >
-                  {STATUTS.map((s) => (
-                    <option key={s.v} value={s.v}>
-                      {s.l}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </Card>
-
-          {/* Lignes de facturation */}
-          <Card className="p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-muted text-[11px] font-bold tracking-[0.5px] uppercase">
-                Lignes de facturation
-              </div>
-              <Button size="xs" variant="outline" onClick={addLigne}>
-                <Plus className="size-3.5" /> Ajouter
-              </Button>
-            </div>
-            <div className="flex flex-col gap-3">
-              {lignes.map((l, i) => (
-                <div
-                  key={i}
-                  className="border-border bg-surface2/40 rounded-lg border p-2.5"
-                >
-                  <div className="mb-2 flex items-start gap-2">
-                    <input
-                      className={`${field} flex-1`}
-                      placeholder="Désignation de la prestation"
-                      value={l.detail}
-                      onChange={(e) => setLigne(i, { detail: e.target.value })}
-                    />
-                    {lignes.length > 1 && (
-                      <button
-                        type="button"
-                        aria-label="Retirer la ligne"
-                        className="text-muted hover:text-danger mt-1.5 flex-none transition-colors"
-                        onClick={() => removeLigne(i)}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div>
-                      <label className={label}>Postes</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className={field}
-                        value={l.nbrePostes}
-                        onChange={(e) =>
-                          setLigne(i, { nbrePostes: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={label}>Agents</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className={field}
-                        value={l.nbreAPS}
-                        onChange={(e) =>
-                          setLigne(i, { nbreAPS: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={label}>Durée/jr</label>
-                      <input
-                        className={field}
-                        value={l.dureeJr}
-                        onChange={(e) =>
-                          setLigne(i, { dureeJr: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={label}>Jours</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className={field}
-                        value={l.dureeJrs}
-                        onChange={(e) =>
-                          setLigne(i, { dureeJrs: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 items-end gap-2">
-                    <div>
-                      <label className={label}>Prix unit. (FCFA)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className={field}
-                        value={l.prixUnitaire}
-                        onChange={(e) =>
-                          setLigne(i, {
-                            prixUnitaire: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="pb-2 text-right">
-                      <span className="text-muted mr-2 text-[11px] font-semibold">
-                        Montant HT
-                      </span>
-                      <span className="text-foreground tnum text-[14px] font-extrabold">
-                        {formatFCFA(ligneMontant(l))}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Options (charte) */}
-          <Card className="p-4">
-            <div className="text-muted mb-2 text-[11px] font-bold tracking-[0.5px] uppercase">
-              Options affichées (une par ligne)
-            </div>
-            <textarea
-              className={`${field} min-h-[80px] resize-y`}
-              value={options.join("\n")}
-              onChange={(e) => setOptions(e.target.value.split("\n"))}
-            />
-          </Card>
-
-          {/* Notes internes */}
-          <Card className="p-4">
-            <div className="text-muted mb-2 text-[11px] font-bold tracking-[0.5px] uppercase">
-              Notes internes
-            </div>
-            <textarea
-              className={`${field} min-h-[70px] resize-y`}
-              placeholder="Notes visibles uniquement en interne"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Card>
-
-          {/* Récapitulatif */}
-          <Card className="p-4">
-            <div className="text-muted mb-3 text-[11px] font-bold tracking-[0.5px] uppercase">
-              Récapitulatif
-            </div>
-            <div className="flex flex-col gap-2 text-[13px]">
-              <div className="flex items-center justify-between">
-                <span className="text-muted font-semibold">Total HT</span>
-                <span className="text-foreground tnum font-bold">
-                  {formatFCFA(ht)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted font-semibold">
-                  TVA ({tauxTVA} %)
-                </span>
-                <span className="text-foreground tnum font-bold">
-                  {formatFCFA(tva)}
-                </span>
-              </div>
-              <div className="border-border mt-1 flex items-center justify-between border-t pt-2.5">
-                <span className="text-foreground text-[14px] font-extrabold">
-                  Total TTC
-                </span>
-                <span className="text-accent tnum text-[17px] font-extrabold">
-                  {formatFCFA(ttc)}
-                </span>
-              </div>
-            </div>
-            <Button
-              className="mt-4 w-full"
-              size="sm"
-              onClick={() => valid && mutation.mutate()}
-              disabled={!valid || mutation.isPending}
-            >
-              {mutation.isPending
-                ? "Enregistrement…"
-                : isEdit
-                  ? "Enregistrer les modifications"
-                  : "Créer la facture"}
-            </Button>
-            {!valid && (
-              <div className="text-muted mt-2 text-center text-[11px] font-semibold">
-                Sélectionnez un client et saisissez au moins un montant.
-              </div>
-            )}
-          </Card>
+      {!valid && (
+        <div className="doc-toolbar text-danger bg-danger/10 mb-3 rounded-lg px-4 py-2 text-center text-[12px] font-bold">
+          Sélectionnez un client (sur le document) et saisissez au moins un montant.
         </div>
+      )}
 
-        {/* ── Aperçu A4 en direct (imprimé) ── */}
-        <div>
-          <div className="doc-toolbar mb-2 flex items-center gap-2">
-            <StatusPill variant="info" dot>
-              Aperçu en direct
-            </StatusPill>
-            <span className="text-muted inline-flex items-center gap-1.5 text-[11.5px] font-semibold">
-              <FileText className="size-3.5" /> Document généré automatiquement
+      {/* Le document A4 — éditable directement */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-black/5 p-4 sm:p-6">
+        <div
+          id="doc-print"
+          className="mx-auto w-full max-w-[820px] rounded-sm bg-white px-8 py-9 text-[#1a1a1a] shadow-[0_4px_24px_rgba(0,0,0,0.12)] sm:px-11"
+        >
+          <DocHeader />
+
+          {/* Bandeau titre */}
+          <div className="flex items-center justify-between rounded-lg px-5 py-3" style={{ background: navy }}>
+            <span className="font-bold text-white" style={{ fontSize: 22, letterSpacing: 1 }}>
+              FACTURE PROFORMA
+            </span>
+            <span className="text-white" style={{ fontSize: 11 }}>
+              Dakar, le{" "}
+              <EditFieldOnDark type="date" value={dateEmission} onChange={setDateEmission} style={{ fontSize: 11, width: 120 }} />
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <div
-              id="doc-print"
-              className="origin-top scale-[0.62] sm:scale-75 lg:scale-90 xl:scale-100"
+
+          {/* Bande client */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-1 rounded-md px-4 py-2" style={{ background: grey }}>
+            <span style={{ fontSize: 10, color: navy }}>N°</span>
+            <EditField value={numero} onChange={setNumero} style={{ fontSize: 10, color: navy, width: 110 }} />
+            <span style={{ fontSize: 10, color: navy }}>- Client :</span>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              className="rounded-[3px] bg-transparent font-bold outline-none focus:bg-[#fde68a]/60"
+              style={{ fontSize: 16, color: navy }}
             >
-              <FactureTemplate
-                data={factureData}
-                numero={numero}
-                dateLabel={dateLabel}
+              <option value="">— choisir un client —</option>
+              {clientOpts.map((o) => (
+                <option key={o.id} value={o.id}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tableau éditable */}
+          <table className="mt-4 w-full border-collapse" style={{ fontSize: 10 }}>
+            <thead>
+              <tr style={{ background: navy }}>
+                <th className="px-3 py-2 text-left font-bold text-white" style={{ width: "32%" }}>Détail de la prestation</th>
+                <th className={th}>Nbre postes</th>
+                <th className={th}>Nbre A.P.S</th>
+                <th className={th}>Durée/jr (H)</th>
+                <th className={th}>Durée (jrs)</th>
+                <th className="px-3 py-2 text-right font-bold text-white">Montant (Fcfa)</th>
+                <th className="no-print w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.map((l, i) => (
+                <tr key={i} className="group" style={{ borderBottom: `1px solid ${grey}` }}>
+                  <td className="px-3 py-1.5 align-top font-bold">
+                    <EditField value={l.detail} onChange={(v) => setLigne(i, { detail: v })} className="w-full" placeholder="Désignation…" style={{ fontWeight: 700 }} />
+                  </td>
+                  <td className="px-2 py-1.5 text-center align-top">
+                    <EditField type="number" min={0} value={l.nbrePostes} onChange={(v) => setLigne(i, { nbrePostes: v })} className="w-12 text-center" />
+                  </td>
+                  <td className="px-2 py-1.5 text-center align-top">
+                    <EditField type="number" min={0} value={l.nbreAPS} onChange={(v) => setLigne(i, { nbreAPS: v })} className="w-12 text-center" />
+                  </td>
+                  <td className="px-2 py-1.5 text-center align-top">
+                    <EditField value={l.dureeJr} onChange={(v) => setLigne(i, { dureeJr: v })} className="w-16 text-center" />
+                  </td>
+                  <td className="px-2 py-1.5 text-center align-top">
+                    <EditField type="number" min={0} value={l.dureeJrs} onChange={(v) => setLigne(i, { dureeJrs: v })} className="w-12 text-center" />
+                  </td>
+                  <td className="px-3 py-1.5 text-right align-top font-bold">
+                    <EditField type="number" min={0} value={l.montant} onChange={(v) => setLigne(i, { montant: Number(v) })} className="w-24 text-right" style={{ fontWeight: 700 }} />
+                  </td>
+                  <td className="no-print px-1 text-center align-middle">
+                    {lignes.length > 1 && (
+                      <button type="button" aria-label="Retirer" onClick={() => removeLigne(i)} className="text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500">
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button type="button" onClick={addLigne} className="no-print mt-1.5 flex items-center gap-1 text-[10.5px] font-bold" style={{ color: navy }}>
+            <Plus className="size-3.5" /> Ajouter une ligne
+          </button>
+
+          {/* NB + totaux */}
+          <div className="mt-4 flex items-start justify-between gap-6">
+            <div className="max-w-[52%]" style={{ fontSize: 9.5 }}>
+              <span className="font-bold" style={{ color: navy }}>NB : </span>
+              <span style={{ color: "#4b5563" }}>{os.conditionsPaiement}</span>
+            </div>
+            <div className="w-[40%] overflow-hidden rounded-md" style={{ fontSize: 11 }}>
+              <TotRow label="TOTAL HT" value={fmt(ht)} bg={navy} color="#fff" />
+              <div className="flex items-stretch" style={{ background: grey }}>
+                <div className="flex-1 px-3 py-2 text-right font-bold" style={{ color: navy }}>
+                  TVA{" "}
+                  <select value={tauxTVA} onChange={(e) => setTauxTVA(Number(e.target.value))} className="rounded-[3px] bg-transparent font-bold outline-none focus:bg-[#fde68a]/70" style={{ color: navy }}>
+                    <option value={18}>18</option>
+                    <option value={0}>0</option>
+                  </select>
+                  %
+                </div>
+                <div className="w-[45%] px-3 py-2 text-right font-bold" style={{ color: navy }}>{fmt(tva)}</div>
+              </div>
+              <TotRow label="TOTAL TTC" value={fmt(ttc)} bg={navy} color="#fff" />
+              <div className="flex items-stretch">
+                <div className="flex-1 px-3 py-2 text-right font-bold text-white" style={{ background: gold }}>NET À PAYER</div>
+                <div className="w-[45%] px-3 py-2 text-right font-bold text-white" style={{ background: gold, opacity: 0.9 }}>{fmt(ttc)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* OPTION (éditable) */}
+          <div className="mt-5">
+            <div className="rounded-t-md px-3 py-1.5 font-bold text-white" style={{ fontSize: 11, letterSpacing: 1, background: navy }}>OPTION</div>
+            <div className="rounded-b-md px-4 py-2" style={{ background: grey, fontSize: 10 }}>
+              <EditArea
+                value={options.join("\n")}
+                onChange={(v) => setOptions(v.split("\n"))}
+                rows={Math.max(2, options.length || 2)}
+                placeholder="Une option par ligne…"
+                style={{ color: navy }}
               />
             </div>
           </div>
+
+          {/* Montant en lettres */}
+          <div className="mt-4 font-bold" style={{ fontSize: 10.5, color: navy }}>
+            Arrêtée la présente facture à la somme de :{" "}
+            <span style={{ textTransform: "uppercase" }}>{ttc > 0 ? montantEnLettres(ttc) : ""}</span>
+          </div>
+
+          <DocSignatureBlock />
+          <DocStamp label={os.comptabilite} />
+          <div className="flex-1" />
+          <DocFooter />
         </div>
       </div>
 
-      {/* Impression : n'imprime que le document A4. */}
       <style>{`
+        #doc-print, #doc-print p, #doc-print td, #doc-print li, #doc-print input, #doc-print select { color: #1a1a1a; }
         @media print {
           body * { visibility: hidden !important; }
           #doc-print, #doc-print * { visibility: visible !important; }
-          #doc-print { position: absolute; left: 0; top: 0; transform: none !important; }
+          #doc-print { position: absolute; left: 0; top: 0; max-width: none !important; box-shadow: none !important; padding: 0 !important; }
+          #doc-print .no-print { display: none !important; }
           .doc-toolbar { display: none !important; }
-          @page { size: A4; margin: 0; }
+          @page { size: A4; margin: 12mm; }
         }
       `}</style>
     </ScreenContainer>
+  );
+}
+
+function TotRow({ label, value, bg, color }: { label: string; value: string; bg: string; color: string }) {
+  return (
+    <div className="flex items-stretch">
+      <div className="flex-1 px-3 py-2 text-right font-bold" style={{ background: bg, color }}>{label}</div>
+      <div className="w-[45%] px-3 py-2 text-right font-bold" style={{ background: bg, color }}>{value}</div>
+    </div>
   );
 }
