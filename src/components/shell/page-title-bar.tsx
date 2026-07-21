@@ -7,7 +7,19 @@ import { screenMeta, isScreenKey, type ScreenKey } from "@/lib/rbac";
 const FR_DATE = "Vendredi 4 juillet 2026";
 
 /** Écrans réutilisés du kit qui portent DÉJÀ leur propre `.page-header`. */
-const OWN_HEADER: ScreenKey[] = ["bibliotheque", "notes"];
+// Écrans qui portent DÉJÀ leur propre titre riche → pas de doublon avec le shell.
+const OWN_HEADER: ScreenKey[] = [
+  "bibliotheque",
+  "notes",
+  "recrutement",
+  "taches",
+  "pointage",
+  "presences",
+  "planning",
+  "paie",
+  "approbation",
+  "satisfaction",
+];
 
 /**
  * En-tête de contenu : titre d'écran + fil d'Ariane, dérivé du RBAC.

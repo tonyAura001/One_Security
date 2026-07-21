@@ -13,7 +13,6 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Tone } from "@/lib/colors";
-import { toneBar } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 export interface KanbanColumn {
@@ -21,6 +20,17 @@ export interface KanbanColumn {
   title: string;
   tone: Tone;
 }
+
+/** Couleur pleine des en-têtes de colonne (façon référence). */
+const TONE_SOLID: Record<Tone, string> = {
+  accent: "var(--accent)",
+  success: "var(--success)",
+  warning: "var(--warning)",
+  danger: "var(--danger)",
+  violet: "var(--violet)",
+  muted: "#64748b",
+  foreground: "#475569",
+};
 
 interface KanbanBoardProps<T> {
   columns: KanbanColumn[];
@@ -33,9 +43,7 @@ interface KanbanBoardProps<T> {
 }
 
 function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id,
-  });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
   return (
     <div
       ref={setNodeRef}
@@ -62,21 +70,23 @@ function Column({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   return (
-    <div className="flex min-w-[260px] flex-1 flex-col">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className={cn("size-2.5 rounded-full", toneBar[column.tone])} />
-        <span className="text-foreground text-[12.5px] font-extrabold">
-          {column.title}
-        </span>
-        <span className="bg-surface2 text-muted ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold">
+    <div className="flex min-w-[240px] flex-1 flex-col">
+      {/* En-tête coloré pleine largeur */}
+      <div
+        className="flex items-center justify-between rounded-t-xl px-3.5 py-2.5 text-white"
+        style={{ background: TONE_SOLID[column.tone] }}
+      >
+        <span className="text-[12.5px] font-extrabold tracking-[-0.2px]">{column.title}</span>
+        <span className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-extrabold">
           {count}
         </span>
       </div>
+      {/* Corps visible (colonnes vides incluses) */}
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-[120px] flex-1 flex-col gap-2.5 rounded-xl border border-transparent p-1 transition-colors",
-          isOver && "border-accent bg-active border-dashed",
+          "border-border bg-surface2/40 flex min-h-[320px] flex-1 flex-col gap-2.5 rounded-b-xl border border-t-0 p-2 transition-colors",
+          isOver && "border-accent bg-accent/10 border-dashed",
         )}
       >
         {children}
@@ -105,7 +115,6 @@ export function KanbanBoard<T>({
   function handleStart(e: DragStartEvent) {
     setActiveId(String(e.active.id));
   }
-
   function handleEnd(e: DragEndEvent) {
     setActiveId(null);
     const { active, over } = e;
@@ -124,7 +133,7 @@ export function KanbanBoard<T>({
       onDragEnd={handleEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2">
         {columns.map((col) => {
           const colItems = items.filter((i) => getColumn(i) === col.id);
           return (
@@ -139,9 +148,7 @@ export function KanbanBoard<T>({
         })}
       </div>
       <DragOverlay>
-        {activeItem ? (
-          <div className="rotate-2 opacity-95">{renderCard(activeItem)}</div>
-        ) : null}
+        {activeItem ? <div className="rotate-2 opacity-95">{renderCard(activeItem)}</div> : null}
       </DragOverlay>
     </DndContext>
   );
