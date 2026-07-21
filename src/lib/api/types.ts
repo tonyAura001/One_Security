@@ -261,6 +261,8 @@ export interface Task {
   priority: "haute" | "moyenne" | "basse";
   done: boolean;
   status?: TaskStatus; // étape kanban (données réelles)
+  description?: string; // détail (données réelles)
+  assigneAId?: string | null;
 }
 
 export interface AppNotification {
