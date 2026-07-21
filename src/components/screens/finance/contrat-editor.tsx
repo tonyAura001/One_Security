@@ -499,9 +499,10 @@ export function ContratEditor({ onClose }: { onClose: () => void }) {
         @media print {
           body * { visibility: hidden !important; }
           #doc-print, #doc-print * { visibility: visible !important; }
-          #doc-print { position: absolute; left: 0; top: 0; max-width: none !important; box-shadow: none !important; }
+          #doc-print { position: absolute; left: 0; top: 0; width: 100% !important; max-width: none !important; box-shadow: none !important; padding: 14mm !important; }
+          #doc-print .no-print { display: none !important; }
           .doc-toolbar { display: none !important; }
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4; margin: 0; }
         }
       `}</style>
     </ScreenContainer>

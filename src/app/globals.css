@@ -728,3 +728,41 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ============================================================
+   Impression des documents A4 (#doc-print) — factures, devis,
+   contrats. Force le rendu FIDÈLE : conserve les fonds de
+   couleur (bandeaux navy/or) que le navigateur supprime sinon,
+   masque les flèches de <select> et les contrôles de saisie.
+   ============================================================ */
+@media print {
+  html,
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background: #ffffff !important;
+  }
+  /* Conserve TOUTES les couleurs de fond/texte du document imprimé. */
+  #doc-print,
+  #doc-print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Les <select> et champs éditables redeviennent du texte simple. */
+  #doc-print select {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background-image: none !important;
+    padding-right: 0 !important;
+  }
+  #doc-print input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+  #doc-print input,
+  #doc-print select,
+  #doc-print textarea {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+}
